@@ -27,8 +27,6 @@ always_allow_html: yes
 knitr::opts_chunk$set(echo = params$printcode, message = FALSE)
 knitr::opts_knit$set(root.dir = '~/Desktop/BORSemiAnn2024Q1-2')
 
-# ! need to troubleshoot line 1054
-
 # load data access packages
 library(odbc) #Read in Access database off of SQL server
 library(dataRetrieval)
@@ -233,7 +231,6 @@ cs<- cs$n
 
 ```
 
-
 There were `r nrow(Rec_Dep6)` real-time receivers deployed and/or retrieved during this quarter (Table 1). All acoustic receivers stationed in the Lower Sacramento River (`r sac`) and Carquinez Straight (`r cs`) were retrieved and deployed by UCSC.
 
 All real-time receivers shown in Table 1 were operational during this quarter, except for temporary receiver outages due to SD card failure, modem disconnect. Site visits were conducted at all locations for quarterly data downloads, maintenance, and SD card swaps. Maintenance for the instruments included updating firmware, replacing two receivers at Meridian Bridge and Benicia, installing new beacon tags and a new hydrophone.
@@ -425,6 +422,7 @@ VemDep5
 # Task 3. Source, obtain, and tag wild winter and spring-run Chinook salmon
 
 ##Acoustic Tagging of Wild Chinook
+
 ```{r calltagged, echo=FALSE, warning=FALSE }
 ## download the tagged fish data set
 library(plyr)
@@ -442,7 +440,6 @@ s<-unique(tag[,c("StudyID","DateTagged")])
 
 ```
 
-
 No wild fish were tagged during this report period.
 
 ## Deliverables:
@@ -458,6 +455,7 @@ No wild fish were tagged during this report period.
 ## Acoustic Tagging of Chinook Salmon juveniles
 
 ###Seasonal Survival Study
+
 ```{r SSfish, include=FALSE}
 study<- paste("Seasonal_Survival_", WY, sep = "")
 
@@ -506,10 +504,10 @@ names(SStag6)[names(SStag6)=="Fish_Type"]<-"Fish Type"
 sstotal<- sum(SStag6$Count)
 
 ```
-UCSC staff implanted `sstotal` acoustic tags into hatchery produced jumpstart winter-run and late-fall run Chinook smolts as part of the Seasonal Survival Study. Releases of these fish were spaced out across three weeks between `wk1` - `wk3` with the intention of gathering movement and survival data across a range of environmental conditions during winter. These fish were tagged at Coleman, and Livingston Stone Fish Hatcheries and transported to the Red Bluff Diversion Dam (RBDD_Rel) to increase the sample size of fish in downstream reaches. Fish were available for tagging with the help and assistance of the U.S. Fish and Wildlife Service. The weekly release groups of tagged fish are shown in Table 5.
+
+UCSC staff implanted `r sstotal` acoustic tags into hatchery produced jumpstart winter-run and late-fall run Chinook smolts as part of the Seasonal Survival Study. Releases of these fish were spaced out across three weeks between `r wk1` - `r wk3` with the intention of gathering movement and survival data across a range of environmental conditions during winter. These fish were tagged at Coleman, and Livingston Stone Fish Hatcheries and transported to the Red Bluff Diversion Dam (RBDD_Rel) to increase the sample size of fish in downstream reaches. Fish were available for tagging with the help and assistance of the U.S. Fish and Wildlife Service. The weekly release groups of tagged fish are shown in Table 5.
 
 Preliminary movement and survival data can be found here: <https://oceanview.pfeg.noaa.gov/CalFishTrack/pageSeasSurv_2023.html>
-
 
 ```{r SStable, echo=FALSE }
 #pipe data to table and give caption
@@ -531,12 +529,12 @@ SStag6
 
 ```
 
-
 ## Acoustic Tagging of Juvenile Steelhead
 
 No Steelhead were tagged during this report period.
 
 ## Tag Retention Studies
+
 ```{r trtags, eval=FALSE, include=FALSE}
 ##format pit tags
 options(scipen = 999)
@@ -609,30 +607,9 @@ SSmortcount<- count(morts[which(morts$StudyID=="Seasonal_Survival_2023"),])
 
 ### Seasonal Survival Tag Retention Study
 
-As part of the Seasonal Survival Study, a total of `r sstotal` juvenile winter run and fall-run Chinook salmon were tagged at CNFH and LSNFH across six weeks (`wk1`, `wk2`, and `wk3`) and transported to the NMFS-SWFSC lab where they were held on-site. The fish were fed and the tanks checked daily for expelled tags. Fish were measured and weighed at the start and end of the trial. At the end of the six week tag retention study, all fish were processed and inspected for shed tags. During this trial, `r SSshedcount` tags were found shed. Two tags were recovered from fish mortalities, one seven days after tagging, and one x days from tagging when fish jumped out of holding tanks.
+As part of the Seasonal Survival Study, a total of #r sstotal# juvenile winter run and fall-run Chinook salmon were tagged at CNFH and LSNFH across six weeks (#r wk1#, #r wk2#, and #r wk3#) and transported to the NMFS-SWFSC lab where they were held on-site. The fish were fed and the tanks checked daily for expelled tags. Fish were measured and weighed at the start and end of the trial. At the end of the six week tag retention study, all fish were processed and inspected for shed tags. During this trial, #r SSshedcount# tags were found shed. Two tags were recovered from fish mortalities, one seven days after tagging, and one x days from tagging when fish jumped out of holding tanks.
 
-The average weight gained was `r SSg` and the average length gained was `r SSl`.
-
-```{r sptr, eval=FALSE, include=FALSE}
-#summarise spring pulse
-SPtagRT<- tagRTfish2[which(tagRTfish2$StudyID=="Spring_Pulse_2023"),]
-
-sptotal<- count(SPtagRT)
-#what happened to fish 59AB?
-SPtagRT<- SPtagRT[which(SPtagRT$Tag.ID!="59AB"),]
-
-#average weight gain
-SPg<- signif(mean(SPtagRT$weight_end-SPtagRT$Weight), 3)
-#g<- "x"
-#average length growth
-SPl<- signif(mean(SPtagRT$length_end-SPtagRT$Length), 3)
-#l<- "y"
-
-
-#Count shed and mort by study
-SPshedcount<- count(sheds[which(sheds$StudyID=="Spring_Pulse_2023"),])
-SPmortcount<- count(morts[which(morts$StudyID=="Spring_Pulse_2023"),])
-```
+The average weight gained was #r SSg# and the average length gained was #r SSl#.
 
 
 ### San Joaquin Steelhead Tag Retention Study
@@ -678,7 +655,6 @@ startup3<-left_join(startup2, warranty) %>%
 
 #write.csv(startup3, "~/Desktop/BORSemiAnnualReportQ3Q4DESK/Tag_Life/Tag_Lifestartup.csv")
 ```
-
 
 ```{r readfiltered_detects, eval=FALSE, warning=FALSE, include=FALSE, echo=FALSE}
 #Set your wd to the file containing the 5 PRI filtered files
@@ -831,7 +807,7 @@ startup5<-startup4 %>%
 
 ```
 
-```{r SSTL, eval=FALSE, include=FALSE}
+```{r SSTLdatedead, eval=FALSE, include=FALSE}
 ##Get number of tags by study
 tags_by_study<-startup5 %>%
   group_by(studyid) %>%
@@ -862,10 +838,9 @@ percent_tags_bystudy<-left_join(startup6, deadbystudy) %>%
 
 ```
 
+To monitor the battery life of the tags used for the Seasonal Survival Study, a 5% random sample was taken from the total proportion of tags used for each release group. In total, #r tagcount# SS400 tags were started over a period of 4 weeks (on 12/13/2022, 2/01/2023,3/01/2023, and 03/15/2023) and placed in the tag life tank located at the NMFS-SWFSC lab for monitoring. Data collected in this study examined the range of battery life for these particular tags, in order to correct any discrepancies in survival estimates as a result of tags shutting off prematurely. #r n# tags in the 2023 Seasonal Survival tag life study made it to the warranty life of 71 days. The average run time was #r avgrun# days with a range of #r mi# to #r ma# days.
 
-To monitor the battery life of the tags used for the Seasonal Survival Study, a 5% random sample was taken from the total proportion of tags used for each release group. In total, `r tagcount` SS400 tags were started over a period of 4 weeks (on 12/13/2022, 2/01/2023,3/01/2023, and 03/15/2023) and placed in the tag life tank located at the NMFS-SWFSC lab for monitoring. Data collected in this study examined the range of battery life for these particular tags, in order to correct any discrepancies in survival estimates as a result of tags shutting off prematurely. `r n` tags in the 2023 Seasonal Survival tag life study made it to the warranty life of 71 days. The average run time was `r avgrun` days with a range of `r mi` to `r ma` days.
-
-```{r SSTLweek, echo=FALSE}
+```{r SSTLweek, include=FALSE, eval=FALSE}
 ##Get number of tags by study week
 tags_by_studyWK<-startup5 %>%
   group_by(week) %>%
@@ -889,17 +864,13 @@ percent_tags<-left_join(startup6, tags_by_study) %>%
 
 ```
 
-###Tags started week 1:
-12/13/2022 A total of 10 acoustic tags (model SS400) were randomly selected to be used in this tag life study. Tags were started on 12/13/2022 and placed into the tag life tank for the duration of the study. All tags in the RBDD Week 1 tag life study made it to the warranty life of 71 days and were detected consistently. 
+###Tags started week 1: 12/13/2022 A total of 10 acoustic tags (model SS400) were randomly selected to be used in this tag life study. Tags were started on 12/13/2022 and placed into the tag life tank for the duration of the study. All tags in the RBDD Week 1 tag life study made it to the warranty life of 71 days and were detected consistently.
 
-###Tags started week 2:
-12/13/2022 A total of 10 acoustic tags (model SS400) were randomly selected to be used in this tag life study. Tags were started on 12/13/2022 and placed into the tag life tank for the duration of the study. All tags in the RBDD Week 1 tag life study made it to the warranty life of 71 days and were detected consistently. 
+###Tags started week 2: 12/13/2022 A total of 10 acoustic tags (model SS400) were randomly selected to be used in this tag life study. Tags were started on 12/13/2022 and placed into the tag life tank for the duration of the study. All tags in the RBDD Week 1 tag life study made it to the warranty life of 71 days and were detected consistently.
 
-###Tags started week 3:
-12/13/2022 A total of 10 acoustic tags (model SS400) were randomly selected to be used in this tag life study. Tags were started on 12/13/2022 and placed into the tag life tank for the duration of the study. All tags in the RBDD Week 1 tag life study made it to the warranty life of 71 days and were detected consistently. 
+###Tags started week 3: 12/13/2022 A total of 10 acoustic tags (model SS400) were randomly selected to be used in this tag life study. Tags were started on 12/13/2022 and placed into the tag life tank for the duration of the study. All tags in the RBDD Week 1 tag life study made it to the warranty life of 71 days and were detected consistently.
 
-
-```{r, w1, echo=FALSE}
+```{r, w1, echo=FALSE, eval=FALSE}
 SSTLtable<-left_join(table_week, tag_model_by_week) %>%
   filter(Study == "Seasonal_Survival") %>%
   rename(Study_ID = week,
@@ -924,7 +895,6 @@ SSTLplot
 ### San Joaquin Steelhead Tag Life Study
 
 No fish were tagged during this report period.
-
 
 ## Deliverables:
 
