@@ -7,8 +7,7 @@ params:
   enddate: "March 31, 2024"
 author: "Semi-annual report `r params$begindate` to `r params$enddate`"
 output:
-  word_document:
-    reference_docx: template.docx
+  pdf_document:
     toc: yes
     toc_depth: '1'
     fig_caption: yes
@@ -16,7 +15,8 @@ output:
     toc: yes
     toc_depth: '1'
     df_print: paged
-  pdf_document:
+  word_document:
+    reference_docx: template.docx
     toc: yes
     toc_depth: '1'
     fig_caption: yes
@@ -100,7 +100,7 @@ Santa Cruz CA 95060\
 
 This report summarizes the fieldwork, data collection, and analysis performed by UC Santa Cruz (UCSC) between `beginmo` and `enddatechar`, as part of the Cooperative Agreement R21AC10455 between the US Bureau of Reclamation (USBR) and UCSC. This is the fourth semi-annual report for the Cooperative Agreement R21AC10455, extending from April 1, 2021 to September 30, 2026. This semi-annual report outlines deliverables for the six tasks described by the agreement.
 
-```{r callr, include=FALSE}
+```{r callR, include=FALSE}
 ##Table 1. Location of real-time JSATS receivers with the date first operational in real-time
 
 con <- dbConnect(odbc(),
@@ -165,6 +165,10 @@ notmatches<- as.data.frame(which(is.na(test$GeneralLocation), arr.ind=TRUE))
 #show not matches
 notmatches1 <- filter(Rec_Dep3, row_number() %in% notmatches$`which(is.na(test$GeneralLocation), arr.ind = TRUE)`)
 
+if(length(notmatches) > 1) { 
+  stop("Deployment Location doesn't match General Location, see notmaches1")
+  }
+
 ```
 
 ```{r coverage, include=FALSE}
@@ -203,22 +207,24 @@ Rec_Dep6<- Rec_Dep6[order(as.Date(Rec_Dep6$StartTime, format="%d-%m-%Y")),]
 regs0<- dplyr::count(unique(Rec_Dep6),Region)
 
 #### may need to be updated
-sac<- regs0[str_detect(regs0$Region, '^.*Sac'),]
-sac<- sac$n
+cs<- subset(regs0, regs0$Region=='Carquinez Strait')
+cs<- cs$n
 #delta <- regs0[str_detect(regs0$Region, '^.*Delta'), ]
 #delta<- sum(delta$freq)
 #gg <- regs0[str_detect(regs0$Region, 'SF Bay'), ]
-# gg<- gg$n
+#gg<- gg$n
 #mc<- subset(regs0, regs0$Region=='Mill Ck')
 #mc<- mc$n
+sac<- regs0[str_detect(regs0$Region, '^.*Sac'),]
+sac<- sac$n
 #sj<- subset(regs0, regs0$Region=='SanJoaquin_R')
 #sj<- sj$n
-cs<- subset(regs0, regs0$Region=='Carquinez Strait')
-cs<- cs$n
+st<- regs0[str_detect(regs0$Region, '^Stan'),]
+st<- st$n
 
 ```
 
-There were `r nrow(Rec_Dep6)` real-time receivers deployed and/or retrieved during this quarter (Table 1). All acoustic receivers stationed in the Lower Sacramento River (`r sac`) and Carquinez Straight (`r cs`) were retrieved and deployed by UCSC.
+There were `r nrow(Rec_Dep6)` real-time receivers deployed and/or retrieved during this quarter (Table 1). All acoustic receivers stationed in the Lower Sacramento River (`r sac`), Stanislaus River (`r st`), and Carquinez Straight (`r cs`) were retrieved and deployed by UCSC.
 
 All real-time receivers shown in Table 1 were operational during this quarter, except for temporary receiver outages due to SD card failure, modem disconnect. Site visits were conducted at all locations for quarterly data downloads, maintenance, and SD card swaps. Maintenance for the instruments included updating firmware, replacing two receivers at Meridian Bridge and Benicia, installing new beacon tags and a new hydrophone.
 
@@ -261,7 +267,7 @@ Deliverables 1-4 were met by posting data relating to survival and movement to t
 
 ## Autonomous Receiver Deployment
 
-```{r callat, include=FALSE}
+```{r callAT, include=FALSE}
 ##Table 2. Autonomous JSATS receivers active, deployed, or retrieved between April 1, 2022, and September 30, 2023
 
 #Collect autonomous JSATS
@@ -275,23 +281,29 @@ Rec_Dep7<-Rec_Dep5[which(Rec_Dep5$RecMake!="ATS SR3017" &
 regs1<- dplyr::count(Rec_Dep7,Region)
 
 #### may need to be updated
-sac<- regs1[str_detect(regs1$Region, "^.*Sac"), ]
-sac<- sac$n
-delta <- regs1[str_detect(regs1$Region, "^.*Delta"), ]
-delta<- delta$n
-gg <- regs1[str_detect(regs1$Region, "SF Bay"), ]
+
+bc<- regs1[str_detect(regs1$Region, '^.*Butte'), ]
+bc<- bc$n
+#delta <- regs1[str_detect(regs1$Region, '^.*Delta'), ]
+#delta<- delta$n
+gg <- subset(regs1, regs1$Region== "SF Bay")
 gg<- gg$n
 #mc<- subset(regs1, regs1$Region=="Mill Ck")
 #mc<- mc$freq
+mcr<- subset(regs1, regs1$Region=="McCloud R")
+mcr<- mcr$n
+sac<- regs1[str_detect(regs1$Region, '^.*Sac'), ]
+sac<- sac$n
+sb<- regs1[str_detect(regs1$Region, '^.*Sut'), ]
+sb<- sb$n
 sj<- subset(regs1, regs1$Region=="SanJoaquin_R")
 sj<- sj$n
 sr<- subset(regs1, regs1$Region=="Stanislaus R")
 sr<- sr$n
-mcr<- subset(regs1, regs1$Region=="McCloud R")
-mcr<- mcr$freq
+
 ```
 
-There were `r nrow(Rec_Dep7)` autonomous receivers retrieved and/or deployed during this report period (Table 2). All acoustic receivers stationed in the Sacramento River, Delta, and Golden Gate were retrieved and deployed by UCSC. These locations include the McCloud River (`r mcr`) lower Sacramento River (`r sac`), the San Joaquin River (`r sj`), the Stanislaus River (`r sr`) the south Delta (`r delta`), and Golden Gate (`r gg`).
+There were `r nrow(Rec_Dep7)` autonomous receivers retrieved and/or deployed during this report period (Table 2). All acoustic receivers stationed in the Sacramento River, Delta, and Golden Gate were retrieved and deployed by UCSC. These locations include the McCloud River (`r mcr`), Butte Creek (`r bc`), the Sutter Bypass (`r sb`), the lower Sacramento River (`r sac`), the Stanislaus River (`r sr`), and Golden Gate (`r gg`).
 
 ```{r table2, echo=FALSE}
 
@@ -322,7 +334,7 @@ RecDep7
 
 ## Vemco Receiver Deployment
 
-```{r callvm, include=FALSE}
+```{r callVM, include=FALSE}
 
 Vemco_Dep<-dbReadTable(con, "VemcoReceiverDeployments")
 
@@ -354,7 +366,7 @@ end4<-end3[end3$StartTime >= begindate,]
 Vemco_Dep3<-unique(rbind(start2, end4))
 
 test2<- left_join(Vemco_Dep3, Rec_Loc, by="GPSname")
-#vemco_missing_GENLOC<- which(is.na(test2$GeneralLocation), arr.ind=TRUE)
+vemco_missing_GENLOC<- which(is.na(test2$GeneralLocation), arr.ind=TRUE)
 
 ###Add location to Vemco Receivers
 #bring in site name and rkm data
@@ -492,7 +504,7 @@ sstotal<- sum(SStag6$Count)
 
 ```
 
-UCSC staff implanted `r sstotal` acoustic tags into hatchery produced jumpstart winter-run and late-fall run Chinook smolts as part of the Seasonal Survival Study. Releases of these fish were spaced out across three weeks between `r wk1` - `r wk3` with the intention of gathering movement and survival data across a range of environmental conditions during winter. These fish were tagged at Coleman, and Livingston Stone Fish Hatcheries and transported to the Red Bluff Diversion Dam (RBDD_Rel) to increase the sample size of fish in downstream reaches. Fish were available for tagging with the help and assistance of the U.S. Fish and Wildlife Service. The weekly release groups of tagged fish are shown in Table 5.
+UCSC staff implanted `r sstotal` acoustic tags into hatchery produced jumpstart winter-run and late-fall run Chinook smolts as part of the Seasonal Survival Study. Releases of these fish were spaced out across three weeks between `r wk1` - `r wk3` with the intention of gathering movement and survival data across a range of environmental conditions during winter. These fish were tagged at Coleman, and Livingston Stone Fish Hatcheries and transported to the Red Bluff Diversion Dam (RBDD_Rel) to increase the sample size of fish in downstream reaches. Fish were available for tagging with the help and assistance of the U.S. Fish and Wildlife Service. The weekly release groups of tagged fish are shown in Table 4.
 
 Preliminary movement and survival data can be found here: <https://oceanview.pfeg.noaa.gov/CalFishTrack/pageSeasSurv_2023.html>
 
@@ -500,7 +512,7 @@ Preliminary movement and survival data can be found here: <https://oceanview.pfe
 #pipe data to table and give caption
 SStag6<- SStag6%>%
   flextable() %>%
-    set_caption(caption = "Table 6. Hatchery fish acoustic tagged during this report period.") %>%
+    set_caption(caption = "Table 4. Hatchery fish acoustic tagged during this report period.") %>%
     font(fontname = "Times New Roman", part = "all") %>%
     fontsize(size = 11, part = "body") %>% 
     width(width = .75)
@@ -523,7 +535,7 @@ No Steelhead were tagged during this report period.
 ## Tag Retention Studies
 
 ```{r trtags, eval=FALSE, include=FALSE}
-##format pit tags
+##for formatting pit tags
 options(scipen = 999)
 #read in data from date tagged
 start<-read.csv("~/Desktop/BORSemiAnnualReportQ3Q4DESK/Tag_Effects/SS_2023_Tag_Effects_Start.csv", header=TRUE)
@@ -610,12 +622,12 @@ No Steelhead were tagged during this report period, and none retained for tag re
 ```{r ttab, eval=FALSE, warning=FALSE, include=FALSE}
 
 ###Read in tag start data for all studies
-setwd("~/Desktop/BORSemiAnnualReportQ3Q4DESK/Tag_Life/StartUpSpecSheets")
+setwd("~/Desktop/BORSemiAnnualReport/BORSemiAnn2024Q1-2/Tag_Life/StartUpSpecSheets")
 
-wd<-setwd("~/Desktop/BORSemiAnnualReportQ3Q4DESK/Tag_Life/StartUpSpecSheets/")
+#wd<-setwd("~/Desktop/BORSemiAnnualReport/BORSemiAnn2024Q1-2/Tag_Life/StartUpSpecSheets")
 
 # list the folders in this file
-files <- list.files("~/Desktop/BORSemiAnnualReportQ3Q4DESK/Tag_Life/StartUpSpecSheets/")
+files <- list.files("~/Desktop/BORSemiAnnualReport/BORSemiAnn2024Q1-2/Tag_Life/StartUpSpecSheets/")
 
 #Number of columns and column names must match exactly for this to work
 data2<-lapply(files, read.table, header=TRUE, sep=",")
