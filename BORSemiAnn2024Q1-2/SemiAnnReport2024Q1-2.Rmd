@@ -459,12 +459,14 @@ study<- paste("Seasonal_Survival_", WY, sep = "")
 #Select studies to look at
 tagss<-tag[which(tag$StudyID==study),]
 s1<-s[which(s$StudyID==study),]
+
 #cleanup date for week vars
 s1$DateTagged<- gsub("16:00:00", "",s1$DateTagged)
 s1<-  arrange(s1, DateTagged)
 wk1<- paste(str_trim(s1[1,2]))
 wk2<- paste(str_trim(s1[3,2]))
 wk3<- paste(str_trim(s1[5,2]))
+#wk4<- paste(str_trim(s1[7,2]))
 
 
 #collect day vars
@@ -502,9 +504,9 @@ sstotal<- sum(SStag6$Count)
 
 ```
 
-UCSC staff implanted `r sstotal` acoustic tags into hatchery produced jumpstart winter-run and late-fall run Chinook smolts as part of the Seasonal Survival Study. Releases of these fish were spaced out across three weeks between `r wk1` - `r wk3` with the intention of gathering movement and survival data across a range of environmental conditions during winter. These fish were tagged at Coleman, and Livingston Stone Fish Hatcheries and transported to the Red Bluff Diversion Dam (RBDD_Rel) to increase the sample size of fish in downstream reaches. Fish were available for tagging with the help and assistance of the U.S. Fish and Wildlife Service. The weekly release groups of tagged fish are shown in Table 4.
+UCSC staff implanted `r sstotal` acoustic tags into hatchery produced jumpstart winter-run and late-fall run Chinook smolts as part of the Seasonal Survival Study. Releases of these fish were spaced out across four weeks between `r wk1` - #r wk4# with the intention of gathering movement and survival data across a range of environmental conditions during winter. These fish were tagged at Coleman, and Livingston Stone Fish Hatcheries and transported to the Red Bluff Diversion Dam (RBDD_Rel) to increase the sample size of fish in downstream reaches. Fish were available for tagging with the help and assistance of the U.S. Fish and Wildlife Service. The weekly release groups of tagged fish are shown in Table 4.
 
-Preliminary movement and survival data can be found here: <https://oceanview.pfeg.noaa.gov/CalFishTrack/pageSeasSurv_2023.html>
+Preliminary movement and survival data can be found here: <https://oceanview.pfeg.noaa.gov/CalFishTrack/pageSeasSurv_2024.html>
 
 ```{r SStable, echo=FALSE }
 #pipe data to table and give caption
@@ -527,16 +529,16 @@ SStag6
 ```
 
 ## Acoustic Tagging of Juvenile Steelhead
-```{r STfish, include=FALSE}
+```{r STfish, eval=FALSE, include=FALSE}
 study<- paste("Steelhead_", WY, sep = "")
+tentdat<- read.csv("/Volumes/JRFREYKEYS/Tagged_Fish_Metadata.csv")
 
 #Select studies to look at
 tagst<-tag[which(tag$StudyID==study),]
 st1<-s[which(s$StudyID==study),]
-#cleanup date for week vars
 st1$DateTagged<- gsub("16:00:00", "",st1$DateTagged)
 st1<-  arrange(st1, DateTagged)
-wk1<- paste(str_trim(st1[1,2]))
+stwk1<- paste(str_trim(st1[1,2]))
 #wk2<- paste(str_trim(st1[3,2]))
 #wk3<- paste(str_trim(st1[5,2]))
 
@@ -576,11 +578,11 @@ sttotal<- sum(STtag6$Count)
 
 ```
 
-UCSC staff implanted `r sttotal` acoustic tags into hatchery produced Steelhead at Mokelumne Fish Hatcheries and transported to three release sites at Head of Old River, Durham Ferry, and Dos Reis. Fish were available for tagging with the help and assistance of the U.S. Fish and Wildlife Service. The first release group of tagged fish is shown in Table 5. 
+UCSC staff implanted #r sttotal# acoustic tags into hatchery produced Steelhead at Mokelumne Fish Hatcheries and transported to three release sites at Head of Old River, Durham Ferry, and Dos Reis on the San Joaquin River. Fish were available for tagging with the help and assistance of the U.S. Fish and Wildlife Service. The first release group of tagged fish is shown in Table 5. 
 
-Preliminary movement and survival data can be found here: <https://oceanview.pfeg.noaa.gov/CalFishTrack/pageSeasSurv_2023.html>
+Preliminary movement and survival data can be found here: <https://oceanview.pfeg.noaa.gov/CalFishTrack/pageSJSTH_2024.html>
 
-```{r STtable, echo=FALSE }
+```{r STtable, eval=FALSE, include=FALSE}
 #pipe data to table and give caption
 STtag6<- STtag6%>%
   flextable() %>%
@@ -605,53 +607,56 @@ STtag6
 ```{r trtags, eval=FALSE, include=FALSE}
 ## download the tag effects fish data set
 library(plyr)
-TE_end<- tbl(con, "Tag_Effects_End") %>%
-                   collect()
+
+TE_start<- tbl(con, "Tag_Effects_Metadata") %>%
+                    collect()
+# TE_end<- tbl(con, "Tag_Effects_End") %>%
+#                    collect()
 #read in tag shed date
-shed<- read.csv("~/Desktop/BORSemiAnnualReportQ3Q4DESK/Tag_Effects/Tag_Effects_Shed_Mort_List.csv", header = T)
+# shed<- read.csv("~/Desktop/BORSemiAnnualReportQ3Q4DESK/Tag_Effects/Tag_Effects_Shed_Mort_List.csv", header = T)
 
 
 #format colnames
-start2<- start %>% 
+TE_start<- TE_start %>% 
   subset(select=c("TagID_Hex","DateTagged","Weight","Length","StudyID")) %>%
   dplyr::rename("Tag.ID" = "TagID_Hex")
-end2<- end %>% 
-  subset(select= c("Tag.ID", "Weight.g.", "Length.mm.", "Tag.Shed.Y.N")) %>%
-  dplyr::rename(c("weight_end" = "Weight.g.","length_end" = "Length.mm.")) %>%
-  na.omit(weight_end)
+# TE_end<- TE_end %>% 
+#   subset(select= c("Tag.ID", "Weight.g.", "Length.mm.", "Tag.Shed.Y.N")) %>%
+#   dplyr::rename(c("weight_end" = "Weight.g.","length_end" = "Length.mm.")) %>%
+#   na.omit(weight_end)
+
 #fix misread tags
 #end2$Tag.ID<- str_replace(end2$Tag.ID, "87F6", "B7F6")
 
-shed2<- shed %>% 
-  dplyr::rename(c("weight_end" = "Weight_recovery", "length_end" = "Length_recovery", "Tag.ID" = "TagID_Hex"))
 
 #format dates
-start2$DateTagged<-as.Date(start2$DateTagged, format = "%m/%d/%Y")
-shed2$DateTagged<-as.Date(shed2$DateTagged, format = "%m/%d/%Y")
-shed2$Date_Recovered<-as.Date(shed2$Date_Recovered, format = "%m/%d/%Y")
+TE_start$DateTagged<-as.Date(TE_start$DateTagged, format = "%m/%d/%Y")
+# shed2$DateTagged<-as.Date(shed2$DateTagged, format = "%m/%d/%Y")
+# shed2$Date_Recovered<-as.Date(shed2$Date_Recovered, format = "%m/%d/%Y")
 
-
-#join by acoustic tag ID
+#join beginning and end by acoustic tag ID
 tagRTfish<- full_join(start2, end2)
+#join shed codes and dates
 tagRTfish2<- full_join(tagRTfish, shed2)
 
-#remove morts for stats
-morts<- tagRTfish2[which(tagRTfish2$Recovery_Method=="MORT"),]
-mortlist<- morts$Tag.ID
-tagRTfish2<- tagRTfish2[ ! tagRTfish2$Tag.ID %in% mortlist, ]
-#remove sheds for stats
-sheds<- tagRTfish2[which(tagRTfish2$Recovery_Method=="SHED"),]
-shedlist<- sheds$Tag.ID
-tagRTfish2<- tagRTfish2[ ! tagRTfish2$Tag.ID %in% shedlist, ]
-
-#remove entries for unknown shed tags
-tagRTfish2<- tagRTfish2[which(tagRTfish2$Tag.ID!=""),]
+# #remove morts for stats
+# morts<- tagRTfish2[which(tagRTfish2$Recovery_Method=="MORT"),]
+# mortlist<- morts$Tag.ID
+# tagRTfish2<- tagRTfish2[ ! tagRTfish2$Tag.ID %in% mortlist, ]
+# #remove sheds for stats
+# sheds<- tagRTfish2[which(tagRTfish2$Recovery_Method=="SHED"),]
+# shedlist<- sheds$Tag.ID
+# tagRTfish2<- tagRTfish2[ ! tagRTfish2$Tag.ID %in% shedlist, ]
+# 
+# #remove entries for unknown shed tags
+# tagRTfish2<- tagRTfish2[which(tagRTfish2$Tag.ID!=""),]
 
 ```
 
 ```{r sstr, eval=FALSE, include=FALSE}
-#summarise seasonal survival
-SStagRT<- tagRTfish2[which(tagRTfish2$StudyID=="Seasonal_Survival_2023"),]
+#summarise seasonal survival tag retention
+study<- paste("Seasonal_Survival", WY, sep = "")
+SStagRT<- tagRTfish2[which(tagRTfish2$StudyID==study),]
 
 sstotal<- nrow(SStagRT)
 #what happened to fish 8F3D? (((not 8E3D)))
@@ -665,36 +670,39 @@ SSl<- signif(mean(SStagRT$length_end-SStagRT$Length), 3)
 #l<- "y"
 
 #Count shed and mort by study
-SSshedcount<- count(sheds[which(sheds$StudyID=="Seasonal_Survival_2023"),])
-SSmortcount<- count(morts[which(morts$StudyID=="Seasonal_Survival_2023"),])
+SSshedcount<- count(sheds[which(sheds$StudyID==study),])
+SSmortcount<- count(morts[which(morts$StudyID==study),])
 ```
 
 ### Seasonal Survival Tag Retention Study
 
-As part of the Seasonal Survival Study, a total of #r sstotal# juvenile winter run and fall-run Chinook salmon were tagged at CNFH and LSNFH across six weeks (#r wk1#, #r wk2#, and #r wk3#) and transported to the NMFS-SWFSC lab where they were held on-site. The fish were fed and the tanks checked daily for expelled tags. Fish were measured and weighed at the start and end of the trial. At the end of the six week tag retention study, all fish were processed and inspected for shed tags. During this trial, #r SSshedcount# tags were found shed. Two tags were recovered from fish mortalities, one seven days after tagging, and one x days from tagging when fish jumped out of holding tanks.
+As part of the Seasonal Survival Study, a total of #r sstotal# juvenile winter run and fall-run Chinook salmon were tagged at CNFH and LSNFH across eight weeks (#r wk1#, #r wk2#, #r wk3#, and #r wk4#). Fall-run Chinook were transported to the NMFS-SWFSC lab where they were held on-site. Winter-run fish remained at LSNFH. The fish were fed and the tanks checked daily for expelled tags. Fish were measured and weighed at the start and end of the six week tag retention study. At the end of the study, all fish were processed and inspected for shed tags.
 
-The average weight gained was #r SSg# and the average length gained was #r SSl#.
+During this report period #r SSshedcount# tags were found shed. 
+
+For fall-run Chinook tagged during the first week of the Seasonal Survival Study, the average weight gained was #r SSg# and the average length gained was #r SSl# during the tag warranty duration of 71 days.
 
 ```{r sttr, eval=FALSE, include=FALSE}
 #summarise steelhead
-SStagRT<- tagRTfish2[which(tagRTfish2$StudyID=="S"),]
+study<- paste("Steelhead_", WY, sep = "")
+STtagRT<- tagRTfish2[which(tagRTfish2$StudyID==study),]
 
-sstotal<- nrow(SStagRT)
+sttotal<- nrow(STtagRT)
 
 #average weight gain
-SSg<- signif(mean(SStagRT$weight_end-SStagRT$Weight), 3)
+STg<- signif(mean(STtagRT$weight_end-STtagRT$Weight), 3)
 #g<- "x"
 #average length growth
-SSl<- signif(mean(SStagRT$length_end-SStagRT$Length), 3)
+STl<- signif(mean(STtagRT$length_end-STtagRT$Length), 3)
 #l<- "y"
 
 #Count shed and mort by study
-SSshedcount<- count(sheds[which(sheds$StudyID=="Seasonal_Survival_2023"),])
-SSmortcount<- count(morts[which(morts$StudyID=="Seasonal_Survival_2023"),])
+STshedcount<- count(sheds[which(sheds$StudyID==study),])
+SSmortcount<- count(morts[which(morts$StudyID==study),])
 ```
 ### San Joaquin Steelhead Tag Retention Study
 
-No Steelhead were tagged during this report period, and none retained for tag retention studies.
+As part of the Steelhead Survival Study, a total of #r sttotal# juvenile fish were tagged at Mokelumne Fish Hatchery and transported to the NMFS-SWFSC lab where they were held on-site. Fish were fed and the tanks checked daily for expelled tags, and were measured and weighed at the trial start. At the end of the >>six week..needs update<< tag retention study, all fish will be measured and weighed, processed and inspected for shed tags. 
 
 ## Tag Life Tests
 
@@ -753,6 +761,8 @@ tl_wk2<- subset(startup, wk == 'Week 2', select = start_date)
 tl_wk2<- tl_wk2[1,]
 tl_wk3<- subset(startup, wk == 'Week 3', select = start_date)
 tl_wk3<- tl_wk3[1,]
+tl_wk4<- subset(startup, wk == 'Week 4', select = start_date)
+tl_wk4<- tl_wk4[1,]
 
 ```
 
@@ -765,14 +775,14 @@ Filt_Files_5PRI <-
   map_df(~fread(.,select = c("TagCode","DateTime_PST","recv"))) %>%
   mutate(PRI_r = 5)
 
-#Set your wd to the file containing the 8 PRI filtered files (for the CDFW tags)
-setwd("~/Desktop/BORSemiAnnualReportQ3Q4DESK/Tag_Life/PRI_8_FilterFiles/")
-Filt_Files_8PRI <-
-  list.files(pattern = "*.csv") %>% 
-  map_df(~fread(.,select = c("TagCode","DateTime_PST", "recv"))) %>%
-  mutate(PRI_r = 8)
-
-Filt_Files<-rbind(Filt_Files_5PRI, Filt_Files_8PRI)
+# #Set your wd to the file containing the 8 PRI filtered files (for the CDFW tags)
+# setwd("~/Desktop/BORSemiAnnualReportQ3Q4DESK/Tag_Life/PRI_8_FilterFiles/")
+# Filt_Files_8PRI <-
+#   list.files(pattern = "*.csv") %>% 
+#   map_df(~fread(.,select = c("TagCode","DateTime_PST", "recv"))) %>%
+#   mutate(PRI_r = 8)
+# 
+# Filt_Files<-rbind(Filt_Files_5PRI, Filt_Files_8PRI)
 
 #Some tags are missing a leading 0 and all have a space in front of them, remove the space and add the leading zero
 #Only do this for the Lotek detections, not the RT receiver detections (once these are included...)
@@ -964,11 +974,13 @@ percent_tags<-left_join(startup6, tags_by_study) %>%
 
 ```
 
-###Tags started week 1: 12/13/2022 A total of 10 acoustic tags (model SS400) were randomly selected to be used in this tag life study. Tags were started on 12/13/2022 and placed into the tag life tank for the duration of the study. All tags in the RBDD Week 1 tag life study made it to the warranty life of 71 days and were detected consistently.
+###Tags started week 1: `r wk1` A total of 10 acoustic tags (model SS400) were randomly selected to be used in this tag life study. Tags were started on `r wk1 and placed into the tag life tank for the duration of the study. All tags in the RBDD Week 1 tag life study made it to the warranty life of 71 days and were detected consistently.
 
-###Tags started week 2: 12/13/2022 A total of 10 acoustic tags (model SS400) were randomly selected to be used in this tag life study. Tags were started on 12/13/2022 and placed into the tag life tank for the duration of the study. All tags in the RBDD Week 1 tag life study made it to the warranty life of 71 days and were detected consistently.
+###Tags started week 2: `r wk2` A total of 10 acoustic tags (model SS400) were randomly selected to be used in this tag life study. Tags were started on `r wk2` and placed into the tag life tank for the duration of the study. 
 
-###Tags started week 3: 12/13/2022 A total of 10 acoustic tags (model SS400) were randomly selected to be used in this tag life study. Tags were started on 12/13/2022 and placed into the tag life tank for the duration of the study. All tags in the RBDD Week 1 tag life study made it to the warranty life of 71 days and were detected consistently.
+###Tags started week 3: `r wk3` A total of 10 acoustic tags (model SS400) were randomly selected to be used in this tag life study. Tags were started on `r wk3` and placed into the tag life tank for the duration of the study. 
+
+###Tags started week 4: `r wk4` A total of 10 acoustic tags (model SS400) were randomly selected to be used in this tag life study. Tags were started on `r wk4` and placed into the tag life tank for the duration of the study. 
 
 ```{r, w1, echo=FALSE, eval=FALSE}
 SSTLtable<-left_join(table_week, tag_model_by_week) %>%
