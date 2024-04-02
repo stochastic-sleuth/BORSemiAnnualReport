@@ -7,7 +7,8 @@ params:
   enddate: "March 31, 2024"
 author: "Semi-annual report `r params$begindate` to `r params$enddate`"
 output:
-  pdf_document:
+  word_document:
+    reference_docx: template.docx
     toc: yes
     toc_depth: '1'
     fig_caption: yes
@@ -15,8 +16,7 @@ output:
     toc: yes
     toc_depth: '1'
     df_print: paged
-  word_document:
-    reference_docx: template.docx
+  pdf_document:
     toc: yes
     toc_depth: '1'
     fig_caption: yes
@@ -24,11 +24,12 @@ always_allow_html: yes
 ---
 
 ```{r setup, include=FALSE, class.source = 'fold-hide'}
-knitr::opts_chunk$set(echo = params$printcode, message = FALSE)
 knitr::opts_knit$set(root.dir = '~/Desktop/BORSemiAnnualReport/BORSemiAnn2024Q1-2')
+knitr::opts_chunk$set(echo = params$printcode, message = FALSE)
 
 # load data access packages
 library(odbc) #Read in Access database off of SQL server
+#library(openssl)
 library(dataRetrieval)
 library(rerddap)
 library(dbplyr)
@@ -65,7 +66,6 @@ enddate<- mdy(params$enddate)
 endmo<- str_extract(enddatechar, "^.*(?=[[:punct:]])")
 WY<- str_extract(params$enddate, "\\d{4}")
 ```
-
 Prepared for:\
 United States Bureau of Reclamation\
 Cooperative Agreement R21AC10455
@@ -90,15 +90,14 @@ Fisheries Ecology Division\
 Santa Cruz CA 95060\
 [jeremy.notch\@noaa.gov](mailto:jeremy.notch@noaa.gov){.email}
 
-\clearpage
-
+\newpage
 \tableofcontents
+\newpage
 
-\clearpage
 
 # Introduction
 
-This report summarizes the fieldwork, data collection, and analysis performed by UC Santa Cruz (UCSC) between `beginmo` and `enddatechar`, as part of the Cooperative Agreement R21AC10455 between the US Bureau of Reclamation (USBR) and UCSC. This is the fourth semi-annual report for the Cooperative Agreement R21AC10455, extending from April 1, 2021 to September 30, 2026. This semi-annual report outlines deliverables for the six tasks described by the agreement.
+This report summarizes the fieldwork, data collection, and analysis performed by UC Santa Cruz (UCSC) between `r beginmo` and `r  enddatechar`, as part of the Cooperative Agreement R21AC10455 between the US Bureau of Reclamation (USBR) and UCSC. This is the fourth semi-annual report for the Cooperative Agreement R21AC10455, extending from April 1, 2021 to September 30, 2026. This semi-annual report outlines deliverables for the six tasks described by the agreement.
 
 ```{r callR, include=FALSE}
 ##Table 1. Location of real-time JSATS receivers with the date first operational in real-time
@@ -108,8 +107,7 @@ con <- dbConnect(odbc(),
                     Server = "calfishtrack-server.database.windows.net",
                     Database = "JSATS_Database",
                     UID = "jsats_user",
-                    PWD = "Pass@123",
-                    Port = 1433)
+                    PWD = "Pass@123")
 odbcListObjects(con)
 
 ```
@@ -453,7 +451,7 @@ No wild fish were tagged during this report period.
 
 ## Acoustic Tagging of Chinook Salmon juveniles
 
-###Seasonal Survival Study
+### Seasonal Survival Study
 
 ```{r SSfish, include=FALSE}
 study<- paste("Seasonal_Survival_", WY, sep = "")
@@ -512,7 +510,7 @@ Preliminary movement and survival data can be found here: <https://oceanview.pfe
 #pipe data to table and give caption
 SStag6<- SStag6%>%
   flextable() %>%
-    set_caption(caption = "Table 4. Hatchery fish acoustic tagged during this report period.") %>%
+    set_caption(caption = "Table 4. Hatchery Chinook acoustic tagged during this report period.") %>%
     font(fontname = "Times New Roman", part = "all") %>%
     fontsize(size = 11, part = "body") %>% 
     width(width = .75)
@@ -529,18 +527,86 @@ SStag6
 ```
 
 ## Acoustic Tagging of Juvenile Steelhead
+```{r STfish, include=FALSE}
+study<- paste("Steelhead_", WY, sep = "")
 
-No Steelhead were tagged during this report period.
+#Select studies to look at
+tagst<-tag[which(tag$StudyID==study),]
+st1<-s[which(s$StudyID==study),]
+#cleanup date for week vars
+st1$DateTagged<- gsub("16:00:00", "",st1$DateTagged)
+st1<-  arrange(st1, DateTagged)
+wk1<- paste(str_trim(st1[1,2]))
+#wk2<- paste(str_trim(st1[3,2]))
+#wk3<- paste(str_trim(st1[5,2]))
+
+
+#collect day vars
+st2<-unique(tagst[,c("StudyID","Fish_Type","Raceway", "Rel_loc","DateTagged","Rel_datetime")])
+
+
+#add fish number to count fish
+tagst$fish_number<-1
+
+#Create summary table
+STtag_table<- plyr::ddply(tagst, .(Raceway, DateTagged), summarise, count=sum(fish_number), 
+                 meanW=mean(Weight), meanL=mean(Length), 
+                 SD_W=sd(Weight), SD_L=sd(Length), min_W=min(Weight), min_L=min(Length),
+                 max_W=max(Weight), max_L=max(Length))
+
+#Set decimal place to 2
+STtag4<-as.data.frame(lapply(STtag_table[sapply(STtag_table, is.numeric)], round, 2))
+#Add back in rel datetime row
+STtag4$DateTagged<-STtag_table$DateTagged
+
+STtag5<-merge(STtag4,s2)
+
+STtag5<-STtag5[order(STtag5$Rel_datetime),]
+
+#Reduced table for report
+STtag6<-STtag5[,c("StudyID", "Fish_Type", "Rel_loc", "Raceway", "count", "Rel_datetime", "meanW", "meanL")]
+names(STtag6)[names(STtag6)=="Rel_loc"]<-"Release Loc"
+names(STtag6)[names(STtag6)=="count"]<-"Count"
+names(STtag6)[names(STtag6)=="Rel_datetime"]<-"Release Date"
+names(STtag6)[names(STtag6)=="meanW"]<-"Avg Weight"
+names(STtag6)[names(STtag6)=="meanL"]<-"Avg Length"
+names(STtag6)[names(STtag6)=="Fish_Type"]<-"Fish Type"
+
+sttotal<- sum(STtag6$Count)
+
+```
+
+UCSC staff implanted `r sttotal` acoustic tags into hatchery produced Steelhead at Mokelumne Fish Hatcheries and transported to three release sites at Head of Old River, Durham Ferry, and Dos Reis. Fish were available for tagging with the help and assistance of the U.S. Fish and Wildlife Service. The first release group of tagged fish is shown in Table 5. 
+
+Preliminary movement and survival data can be found here: <https://oceanview.pfeg.noaa.gov/CalFishTrack/pageSeasSurv_2023.html>
+
+```{r STtable, echo=FALSE }
+#pipe data to table and give caption
+STtag6<- STtag6%>%
+  flextable() %>%
+    set_caption(caption = "Table 5. Hatchery Steelhead acoustic tagged during this report period.") %>%
+    font(fontname = "Times New Roman", part = "all") %>%
+    fontsize(size = 11, part = "body") %>% 
+    width(width = .75)
+
+#set table style
+STtag6<- theme_zebra(STtag6, odd_header="#4472c4", odd_body ="#d9e2f3", even_header="transparent", even_body="transparent")
+STtag6<- border_outer(STtag6, part="all", border= bord)
+STtag6<- border_inner(STtag6, part="body", border=bord)
+STtag6<- align(STtag6, align = "center", part = "all")
+
+#print table
+STtag6
+
+```
 
 ## Tag Retention Studies
 
 ```{r trtags, eval=FALSE, include=FALSE}
-##for formatting pit tags
-options(scipen = 999)
-#read in data from date tagged
-start<-read.csv("~/Desktop/BORSemiAnnualReportQ3Q4DESK/Tag_Effects/SS_2023_Tag_Effects_Start.csv", header=TRUE)
-#read in data from date dissection
-end<-read.csv("~/Desktop/BORSemiAnnualReportQ3Q4DESK/Tag_Effects/SS_2023_Tag_Effects_End.csv", header=TRUE)
+## download the tag effects fish data set
+library(plyr)
+TE_end<- tbl(con, "Tag_Effects_End") %>%
+                   collect()
 #read in tag shed date
 shed<- read.csv("~/Desktop/BORSemiAnnualReportQ3Q4DESK/Tag_Effects/Tag_Effects_Shed_Mort_List.csv", header = T)
 
@@ -554,9 +620,8 @@ end2<- end %>%
   dplyr::rename(c("weight_end" = "Weight.g.","length_end" = "Length.mm.")) %>%
   na.omit(weight_end)
 #fix misread tags
-end2$Tag.ID<- str_replace(end2$Tag.ID, "87F6", "B7F6")
-end2$Tag.ID<- str_replace(end2$Tag.ID, "84C1", "B4C1")
-end2$Tag.ID<- str_replace(end2$Tag.ID, "71F4", "71E4")
+#end2$Tag.ID<- str_replace(end2$Tag.ID, "87F6", "B7F6")
+
 shed2<- shed %>% 
   dplyr::rename(c("weight_end" = "Weight_recovery", "length_end" = "Length_recovery", "Tag.ID" = "TagID_Hex"))
 
@@ -610,7 +675,23 @@ As part of the Seasonal Survival Study, a total of #r sstotal# juvenile winter r
 
 The average weight gained was #r SSg# and the average length gained was #r SSl#.
 
+```{r sttr, eval=FALSE, include=FALSE}
+#summarise steelhead
+SStagRT<- tagRTfish2[which(tagRTfish2$StudyID=="S"),]
 
+sstotal<- nrow(SStagRT)
+
+#average weight gain
+SSg<- signif(mean(SStagRT$weight_end-SStagRT$Weight), 3)
+#g<- "x"
+#average length growth
+SSl<- signif(mean(SStagRT$length_end-SStagRT$Length), 3)
+#l<- "y"
+
+#Count shed and mort by study
+SSshedcount<- count(sheds[which(sheds$StudyID=="Seasonal_Survival_2023"),])
+SSmortcount<- count(morts[which(morts$StudyID=="Seasonal_Survival_2023"),])
+```
 ### San Joaquin Steelhead Tag Retention Study
 
 No Steelhead were tagged during this report period, and none retained for tag retention studies.
@@ -619,40 +700,60 @@ No Steelhead were tagged during this report period, and none retained for tag re
 
 ### Seasonal Surival Tag Life Study
 
-```{r ttab, eval=FALSE, warning=FALSE, include=FALSE}
+```{r ttab, echo=FALSE, warning=FALSE}
 
 ###Read in tag start data for all studies
-setwd("~/Desktop/BORSemiAnnualReport/BORSemiAnn2024Q1-2/Tag_Life/StartUpSpecSheets")
-
-#wd<-setwd("~/Desktop/BORSemiAnnualReport/BORSemiAnn2024Q1-2/Tag_Life/StartUpSpecSheets")
-
+#setwd("~/Desktop/BORSemiAnnualReport/BORSemiAnn2024Q1-2/Tag_Life/StartUpSpecSheets")
 # list the folders in this file
-files <- list.files("~/Desktop/BORSemiAnnualReport/BORSemiAnn2024Q1-2/Tag_Life/StartUpSpecSheets/")
+#files <- list.files("~/Desktop/BORSemiAnnualReport/BORSemiAnn2024Q1-2/Tag_Life/StartUpSpecSheets/")
 
-#Number of columns and column names must match exactly for this to work
-data2<-lapply(files, read.table, header=TRUE, sep=",")
-for (i in 1:length(data2)){data2[[i]]<-cbind(data2[[i]],files[i])}
-startup <- do.call("rbind", data2) 
+# #Number of columns and column names must match exactly for this to work
+# data2<-lapply(files, read.table, header=TRUE, sep=",")
+# for (i in 1:length(data2)){data2[[i]]<-cbind(data2[[i]],files[i])}
+# startup <- do.call("rbind", data2) 
+# 
+# startup2<-startup %>%
+#   dplyr::rename(studyid = `files[i]`) %>%
+#   mutate(Date = as.Date(DateTime, format = "%m/%d/%Y"),
+#          studyid = sub("\\..*", "", studyid),
+#          PRI_r = round(PRI, digits=0)) %>%
+#   select(-c(Notes, PRI))
 
-startup2<-startup %>%
-  dplyr::rename(studyid = `files[i]`) %>%
-  mutate(Date = as.Date(DateTime, format = "%m/%d/%Y"),
-         studyid = sub("\\..*", "", studyid),
-         PRI_r = round(PRI, digits=0)) %>%
-  select(-c(Notes, PRI))
+# #Create warranty life table with all the options for tag model and PRI
+# TagModel<-c("SS300","SS400","SS300 bat 392", "SS400 2 bat 379","SS300","SS400","SS300 bat 392", "SS400 2 bat 379","SS400","SS300","SS400","SS300 bat 392", "SS400 2 bat 379")
+# PRI_r<-c(3,3,3,3,5,5,5,5,8,10,10,10,10)
+# warranty_life<-c(23, 48, 79, 108, 37, 71, 128, 159, 90, 68, 111, 238, 247)
+# warranty<-data.frame(TagModel, PRI_r, warranty_life)
+# 
+# #Add warranty life and warranty date to startup table
+# startup3<-left_join(startup2, warranty) %>%
+#   mutate(warranty_date = Date + warranty_life) %>%
+#   dplyr::rename(start_date = Date)
+# 
+# #write.csv(startup3, "~/Desktop/BORSemiAnnualReportQ3Q4DESK/Tag_Life/Tag_Lifestartup.csv")
 
-#Create warranty life table with all the options for tag model and PRI
-TagModel<-c("SS300","SS400","SS300 bat 392", "SS400 2 bat 379","SS300","SS400","SS300 bat 392", "SS400 2 bat 379","SS400","SS300","SS400","SS300 bat 392", "SS400 2 bat 379")
-PRI_r<-c(3,3,3,3,5,5,5,5,8,10,10,10,10)
-warranty_life<-c(23, 48, 79, 108, 37, 71, 128, 159, 90, 68, 111, 238, 247)
-warranty<-data.frame(TagModel, PRI_r, warranty_life)
+startup<- read.csv("~/Desktop/BORSemiAnnualReport/BORSemiAnn2024Q1-2/Tag_Life/StartUpSpecSheets/tag_life_tags.csv") #got lazy and made one sheet with RR varnames
 
-#Add warranty life and warranty date to startup table
-startup3<-left_join(startup2, warranty) %>%
-  mutate(warranty_date = Date + warranty_life) %>%
-  dplyr::rename(start_date = Date)
+startup <- startup[,1:10]
+startup<- startup %>%
+  mutate(date = as.Date(startup$start_date, format="%m/%d/%y"))
 
-#write.csv(startup3, "~/Desktop/BORSemiAnnualReportQ3Q4DESK/Tag_Life/Tag_Lifestartup.csv")
+tagcount<- nrow(startup)
+
+tagdays<- as.data.frame(sort(unique(startup[,"start_date"])))
+colnames(tagdays)<- "date"
+tagdays<- tagdays %>%
+  mutate(date = as.Date(tagdays$date, format="%m/%d/%y"))
+tagdays$wk<- paste("Week ", row_number(tagdays), sep="")
+startup<- left_join(startup, tagdays, by="date")
+
+tl_wk1<- subset(startup, wk == 'Week 1', select = start_date)
+tl_wk1<- tl_wk1[1,]
+tl_wk2<- subset(startup, wk == 'Week 2', select = start_date)
+tl_wk2<- tl_wk2[1,]
+tl_wk3<- subset(startup, wk == 'Week 3', select = start_date)
+tl_wk3<- tl_wk3[1,]
+
 ```
 
 ```{r readfiltered_detects, eval=FALSE, warning=FALSE, include=FALSE, echo=FALSE}
@@ -837,7 +938,7 @@ percent_tags_bystudy<-left_join(startup6, deadbystudy) %>%
 
 ```
 
-To monitor the battery life of the tags used for the Seasonal Survival Study, a 5% random sample was taken from the total proportion of tags used for each release group. In total, #r tagcount# SS400 tags were started over a period of 4 weeks (on 12/13/2022, 2/01/2023,3/01/2023, and 03/15/2023) and placed in the tag life tank located at the NMFS-SWFSC lab for monitoring. Data collected in this study examined the range of battery life for these particular tags, in order to correct any discrepancies in survival estimates as a result of tags shutting off prematurely. #r n# tags in the 2023 Seasonal Survival tag life study made it to the warranty life of 71 days. The average run time was #r avgrun# days with a range of #r mi# to #r ma# days.
+To monitor the battery life of the tags used for the Seasonal Survival Study, a 5% random sample was taken from the total proportion of tags used for each release group. In total, `r tagcount` SS400 tags were started over a period of three weeks (on `r tl_wk1`, `r tl_wk2`, and `r tl_wk3`) and placed in the tag life tank located at the NMFS-SWFSC lab, for monitoring. Data collected in this study examined the range of battery life for these particular tags, in order to correct any discrepancies in survival estimates as a result of tags shutting off prematurely. #r n# tags in the 2023 Seasonal Survival tag life study made it to the warranty life of 71 days. The average run time was #r avgrun# days with a range of #r mi# to #r ma# days.
 
 ```{r SSTLweek, include=FALSE, eval=FALSE}
 ##Get number of tags by study week
@@ -893,7 +994,7 @@ SSTLplot
 
 ### San Joaquin Steelhead Tag Life Study
 
-No fish were tagged during this report period.
+To monitor the battery life of tags implanted in San Joaquin Steelhead, a 5% random sample was taken from the total number of tags used for the first six release groups, tagged on study week one, during this report period. 18 SS300 tags were started on 3/18/204 and placed in the tag life tank located at the NMFS-SWFSC lab to monitor the range of battery life for these particular tags, and to correct any discrepancies in survival estimates as a result of tags shutting off prematurely.
 
 ## Deliverables:
 
