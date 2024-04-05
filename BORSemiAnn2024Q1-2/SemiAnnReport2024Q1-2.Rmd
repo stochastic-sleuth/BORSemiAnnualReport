@@ -5,20 +5,19 @@ params:
   printcode: no
   begindate: "October 1, 2023"
   enddate: "March 31, 2024"
-author: "Semi-annual report `r params$begindate` to `r params$enddate`"
+subtitle: "Semi-annual report `r params$begindate` to `r params$enddate`"
 output:
   word_document:
     reference_docx: template.docx
-    toc: yes
-    toc_depth: '1'
+    toc: no
+
     fig_caption: yes
   html_document:
-    toc: yes
-    toc_depth: '1'
+    toc: no
+    toc_float: no
     df_print: paged
   pdf_document:
-    toc: yes
-    toc_depth: '1'
+    toc: no
     fig_caption: yes
 always_allow_html: yes
 ---
@@ -27,9 +26,12 @@ always_allow_html: yes
 knitr::opts_knit$set(root.dir = '~/Desktop/BORSemiAnnualReport/BORSemiAnn2024Q1-2')
 knitr::opts_chunk$set(echo = params$printcode, message = FALSE)
 
+#fork a table of contents format, since word is not latex compatable
+devtools::source_gist("c83e078bf8c81b035e32c3fc0cf04ee8",
+                      filename = 'render_toc.R')
+
 # load data access packages
 library(odbc) #Read in Access database off of SQL server
-#library(openssl)
 library(dataRetrieval)
 library(rerddap)
 library(dbplyr)
@@ -50,12 +52,16 @@ library(knitr) #generate word report
 library(flextable) #format tables
 #install.packages("officer") #format tables
 library(officer)
+#install.packages("officedown")
+library(officedown)
 library(grid)
 library(ggplot2)
 library(plotly)
 
 #set border style first time
 bord = fp_border(color="#9bb4df", width=1)
+
+set_flextable_defaults(fonts_ignore=TRUE)
 
 #store and format date params
 begindatechar<- params$begindate
@@ -91,10 +97,10 @@ Santa Cruz CA 95060\
 [jeremy.notch\@noaa.gov](mailto:jeremy.notch@noaa.gov){.email}
 
 \newpage
-\tableofcontents
+## Table of Contents
+
+<!---BLOCK_TOC--->
 \newpage
-
-
 # Introduction
 
 This report summarizes the fieldwork, data collection, and analysis performed by UC Santa Cruz (UCSC) between `r beginmo` and `r  enddatechar`, as part of the Cooperative Agreement R21AC10455 between the US Bureau of Reclamation (USBR) and UCSC. This is the fourth semi-annual report for the Cooperative Agreement R21AC10455, extending from April 1, 2021 to September 30, 2026. This semi-annual report outlines deliverables for the six tasks described by the agreement.
@@ -252,7 +258,7 @@ RecDep6
 
 Deliverables 1-4 were met by posting data relating to survival and movement to the website: <https://oceanview.pfeg.noaa.gov/CalFishTrack>
 
-## Deliverables
+## Deliverables:
 
 1.  Web-accessible reporting status of real-time receivers
 2.  Real-time data available through ERDDAP data server, updated daily
@@ -330,12 +336,13 @@ RecDep7<- align(RecDep7, align = "center", part = "all")
 RecDep7
 ```
 
+
 ## Vemco Receiver Deployment
 
 ```{r callVM, include=FALSE}
 
 Vemco_Dep<-dbReadTable(con, "VemcoReceiverDeployments")
-
+# note these are stored without a region variable, unlike Autonomous
 Vemco_Dep2<-subset(Vemco_Dep, select = c("GPSname", "VemcoSN", "StartTime", "EndTime"))
 
 
@@ -418,7 +425,7 @@ VemDep5
 
 # Task 3. Source, obtain, and tag wild winter and spring-run Chinook salmon
 
-##Acoustic Tagging of Wild Chinook
+## Acoustic Tagging of Wild Chinook
 
 ```{r calltagged, echo=FALSE, warning=FALSE }
 ## download the tagged fish data set
@@ -451,7 +458,7 @@ No wild fish were tagged during this report period.
 
 ## Acoustic Tagging of Chinook Salmon juveniles
 
-### Seasonal Survival Study
+#### Seasonal Survival Study
 
 ```{r SSfish, include=FALSE}
 study<- paste("Seasonal_Survival_", WY, sep = "")
@@ -472,6 +479,7 @@ wk3<- paste(str_trim(s1[5,2]))
 #collect day vars
 s2<-unique(tagss[,c("StudyID","Fish_Type","Raceway", "Rel_loc","DateTagged","Rel_datetime")])
 
+#read in week 4 data HERE >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 #add fish number to count fish
 tagss$fish_number<-1
@@ -531,7 +539,6 @@ SStag6
 ## Acoustic Tagging of Juvenile Steelhead
 ```{r STfish, eval=FALSE, include=FALSE}
 study<- paste("Steelhead_", WY, sep = "")
-tentdat<- read.csv("/Volumes/JRFREYKEYS/Tagged_Fish_Metadata.csv")
 
 #Select studies to look at
 tagst<-tag[which(tag$StudyID==study),]
@@ -539,8 +546,8 @@ st1<-s[which(s$StudyID==study),]
 st1$DateTagged<- gsub("16:00:00", "",st1$DateTagged)
 st1<-  arrange(st1, DateTagged)
 stwk1<- paste(str_trim(st1[1,2]))
-#wk2<- paste(str_trim(st1[3,2]))
-#wk3<- paste(str_trim(st1[5,2]))
+#stwk2<- paste(str_trim(st1[3,2]))
+#stwk3<- paste(str_trim(st1[5,2]))
 
 
 #collect day vars
@@ -612,11 +619,12 @@ TE_start<- tbl(con, "Tag_Effects_Metadata") %>%
                     collect()
 # TE_end<- tbl(con, "Tag_Effects_End") %>%
 #                    collect()
-#read in tag shed date
+
+##read in tag shed date, this will need to be a csv
 # shed<- read.csv("~/Desktop/BORSemiAnnualReportQ3Q4DESK/Tag_Effects/Tag_Effects_Shed_Mort_List.csv", header = T)
 
 
-#format colnames
+##format colnames
 TE_start<- TE_start %>% 
   subset(select=c("TagID_Hex","DateTagged","Weight","Length","StudyID")) %>%
   dplyr::rename("Tag.ID" = "TagID_Hex")
@@ -625,19 +633,18 @@ TE_start<- TE_start %>%
 #   dplyr::rename(c("weight_end" = "Weight.g.","length_end" = "Length.mm.")) %>%
 #   na.omit(weight_end)
 
-#fix misread tags
-#end2$Tag.ID<- str_replace(end2$Tag.ID, "87F6", "B7F6")
 
-
-#format dates
+##format dates
 TE_start$DateTagged<-as.Date(TE_start$DateTagged, format = "%m/%d/%Y")
-# shed2$DateTagged<-as.Date(shed2$DateTagged, format = "%m/%d/%Y")
-# shed2$Date_Recovered<-as.Date(shed2$Date_Recovered, format = "%m/%d/%Y")
+# shed$DateTagged<-as.Date(shed$DateTagged, format = "%m/%d/%Y")
+# shed$Date_Recovered<-as.Date(shed$Date_Recovered, format = "%m/%d/%Y")
 
+##select studies in report WY
+TE_start<- subset(TE_start, grepl(".*24", TE_start$StudyID))
 #join beginning and end by acoustic tag ID
-tagRTfish<- full_join(start2, end2)
+tagRTfish<- full_join(TE_start, TE_end)
 #join shed codes and dates
-tagRTfish2<- full_join(tagRTfish, shed2)
+tagRTfish2<- full_join(tagRTfish, shed)
 
 # #remove morts for stats
 # morts<- tagRTfish2[which(tagRTfish2$Recovery_Method=="MORT"),]
@@ -674,7 +681,7 @@ SSshedcount<- count(sheds[which(sheds$StudyID==study),])
 SSmortcount<- count(morts[which(morts$StudyID==study),])
 ```
 
-### Seasonal Survival Tag Retention Study
+#### Seasonal Survival Tag Retention Study
 
 As part of the Seasonal Survival Study, a total of #r sstotal# juvenile winter run and fall-run Chinook salmon were tagged at CNFH and LSNFH across eight weeks (#r wk1#, #r wk2#, #r wk3#, and #r wk4#). Fall-run Chinook were transported to the NMFS-SWFSC lab where they were held on-site. Winter-run fish remained at LSNFH. The fish were fed and the tanks checked daily for expelled tags. Fish were measured and weighed at the start and end of the six week tag retention study. At the end of the study, all fish were processed and inspected for shed tags.
 
@@ -700,13 +707,13 @@ STl<- signif(mean(STtagRT$length_end-STtagRT$Length), 3)
 STshedcount<- count(sheds[which(sheds$StudyID==study),])
 SSmortcount<- count(morts[which(morts$StudyID==study),])
 ```
-### San Joaquin Steelhead Tag Retention Study
+#### San Joaquin Steelhead Tag Retention Study
 
 As part of the Steelhead Survival Study, a total of #r sttotal# juvenile fish were tagged at Mokelumne Fish Hatchery and transported to the NMFS-SWFSC lab where they were held on-site. Fish were fed and the tanks checked daily for expelled tags, and were measured and weighed at the trial start. At the end of the >>six week..needs update<< tag retention study, all fish will be measured and weighed, processed and inspected for shed tags. 
 
 ## Tag Life Tests
 
-### Seasonal Surival Tag Life Study
+#### Seasonal Surival Tag Life Study
 
 ```{r ttab, echo=FALSE, warning=FALSE}
 
@@ -974,13 +981,13 @@ percent_tags<-left_join(startup6, tags_by_study) %>%
 
 ```
 
-###Tags started week 1: `r wk1` A total of 10 acoustic tags (model SS400) were randomly selected to be used in this tag life study. Tags were started on `r wk1 and placed into the tag life tank for the duration of the study. All tags in the RBDD Week 1 tag life study made it to the warranty life of 71 days and were detected consistently.
+#### *Tags started week 1:* `r wk1` A total of 10 acoustic tags (model SS400) were randomly selected to be used in this tag life study. Tags were started on `r wk1` and placed into the tag life tank for the duration of the study. All tags in the RBDD Week 1 tag life study made it to the warranty life of 71 days and were detected consistently.
 
-###Tags started week 2: `r wk2` A total of 10 acoustic tags (model SS400) were randomly selected to be used in this tag life study. Tags were started on `r wk2` and placed into the tag life tank for the duration of the study. 
+#### *Tags started week 2:* `r wk2` A total of 10 acoustic tags (model SS400) were randomly selected to be used in this tag life study. Tags were started on `r wk2` and placed into the tag life tank for the duration of the study. 
 
-###Tags started week 3: `r wk3` A total of 10 acoustic tags (model SS400) were randomly selected to be used in this tag life study. Tags were started on `r wk3` and placed into the tag life tank for the duration of the study. 
+#### *Tags started week 3:* `r wk3` A total of 10 acoustic tags (model SS400) were randomly selected to be used in this tag life study. Tags were started on `r wk3` and placed into the tag life tank for the duration of the study. 
 
-###Tags started week 4: `r wk4` A total of 10 acoustic tags (model SS400) were randomly selected to be used in this tag life study. Tags were started on `r wk4` and placed into the tag life tank for the duration of the study. 
+#### *Tags started week 4:* #r wk4# A total of 10 acoustic tags (model SS400) were randomly selected to be used in this tag life study. Tags were started on #r wk4# and placed into the tag life tank for the duration of the study. 
 
 ```{r, w1, echo=FALSE, eval=FALSE}
 SSTLtable<-left_join(table_week, tag_model_by_week) %>%
@@ -1004,9 +1011,9 @@ ggplot(aes(days_on, percent_alive, group = week, color = week)) +
 SSTLplot
 ```
 
-### San Joaquin Steelhead Tag Life Study
+#### San Joaquin Steelhead Tag Life Study
 
-To monitor the battery life of tags implanted in San Joaquin Steelhead, a 5% random sample was taken from the total number of tags used for the first six release groups, tagged on study week one, during this report period. 18 SS300 tags were started on 3/18/204 and placed in the tag life tank located at the NMFS-SWFSC lab to monitor the range of battery life for these particular tags, and to correct any discrepancies in survival estimates as a result of tags shutting off prematurely.
+To monitor the battery life of tags implanted in San Joaquin Steelhead, a 5% random sample was taken from the total number of tags used for the first six release groups, tagged on study week one, during this report period. 18 SS300 tags were started on 3/18/2024 and placed in the tag life tank located at the NMFS-SWFSC lab to monitor the range of battery life for these particular tags, and to correct any discrepancies in survival estimates as a result of tags shutting off prematurely.
 
 ## Deliverables:
 
