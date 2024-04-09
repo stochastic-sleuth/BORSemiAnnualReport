@@ -10,7 +10,6 @@ output:
   word_document:
     reference_docx: template.docx
     toc: no
-
     fig_caption: yes
   html_document:
     toc: no
@@ -98,6 +97,9 @@ Santa Cruz CA 95060\
 
 \newpage
 ## Table of Contents
+```{r toc, echo=FALSE} 
+render_toc("SemiAnnReport2024Q1-2.Rmd", toc_header_name = "Table of Contents")
+```
 
 <!---BLOCK_TOC--->
 \newpage
@@ -258,7 +260,7 @@ RecDep6
 
 Deliverables 1-4 were met by posting data relating to survival and movement to the website: <https://oceanview.pfeg.noaa.gov/CalFishTrack>
 
-## Deliverables:
+## Deliverables
 
 1.  Web-accessible reporting status of real-time receivers
 2.  Real-time data available through ERDDAP data server, updated daily
@@ -418,7 +420,7 @@ VemDep5
 
 ```
 
-## Deliverables:
+## Deliverables
 
 1.  Provide data to ITAG JSATS Database coordinator and web-accessible autonomous receiver data (via ERDDAP) within 30 days of downloading
 2.  Web-accessible semi-annual log of deployment and download activity including what sites were visited and operational coverage for each receiver
@@ -446,7 +448,7 @@ s<-unique(tag[,c("StudyID","DateTagged")])
 
 No wild fish were tagged during this report period.
 
-## Deliverables:
+## Deliverables
 
 1.  Final Pre-season tagging plan available via the website
 2.  Web-accessible Telemetry Study Summary no more than 96 hours after the release of fish
@@ -981,13 +983,17 @@ percent_tags<-left_join(startup6, tags_by_study) %>%
 
 ```
 
-#### *Tags started week 1:* `r wk1` A total of 10 acoustic tags (model SS400) were randomly selected to be used in this tag life study. Tags were started on `r wk1` and placed into the tag life tank for the duration of the study. All tags in the RBDD Week 1 tag life study made it to the warranty life of 71 days and were detected consistently.
+##### *Tags started week 1:* `r wk1` 
+A total of 10 acoustic tags (model SS400) were randomly selected to be used in this tag life study. Tags were started on `r wk1` and placed into the tag life tank for the duration of the study. All tags in the RBDD Week 1 tag life study made it to the warranty life of 71 days and were detected consistently.
 
-#### *Tags started week 2:* `r wk2` A total of 10 acoustic tags (model SS400) were randomly selected to be used in this tag life study. Tags were started on `r wk2` and placed into the tag life tank for the duration of the study. 
+##### *Tags started week 2:* `r wk2` 
+A total of 10 acoustic tags (model SS400) were randomly selected to be used in this tag life study. Tags were started on `r wk2` and placed into the tag life tank for the duration of the study. 
 
-#### *Tags started week 3:* `r wk3` A total of 10 acoustic tags (model SS400) were randomly selected to be used in this tag life study. Tags were started on `r wk3` and placed into the tag life tank for the duration of the study. 
+##### *Tags started week 3:* `r wk3` 
+A total of 10 acoustic tags (model SS400) were randomly selected to be used in this tag life study. Tags were started on `r wk3` and placed into the tag life tank for the duration of the study. 
 
-#### *Tags started week 4:* #r wk4# A total of 10 acoustic tags (model SS400) were randomly selected to be used in this tag life study. Tags were started on #r wk4# and placed into the tag life tank for the duration of the study. 
+##### *Tags started week 4:* #r wk4# 
+A total of 10 acoustic tags (model SS400) were randomly selected to be used in this tag life study. Tags were started on #r wk4# and placed into the tag life tank for the duration of the study. 
 
 ```{r, w1, echo=FALSE, eval=FALSE}
 SSTLtable<-left_join(table_week, tag_model_by_week) %>%
@@ -1015,7 +1021,7 @@ SSTLplot
 
 To monitor the battery life of tags implanted in San Joaquin Steelhead, a 5% random sample was taken from the total number of tags used for the first six release groups, tagged on study week one, during this report period. 18 SS300 tags were started on 3/18/2024 and placed in the tag life tank located at the NMFS-SWFSC lab to monitor the range of battery life for these particular tags, and to correct any discrepancies in survival estimates as a result of tags shutting off prematurely.
 
-## Deliverables:
+## Deliverables
 
 1.  Final Pre-season tagging plan available via the website
 2.  Web-accessible Telemetry Study Summary no more than 96 hours after the release of fish
@@ -1029,7 +1035,7 @@ To monitor the battery life of tags implanted in San Joaquin Steelhead, a 5% ran
 
 The project website was updated with new web pages describing unique tagging studies, including release metadata, travel time, number of fish detected at each real-time receiver, and detection efficiency for dual-line receiver locations (Sacramento, Benicia). <https://oceanview.pfeg.noaa.gov/CalFishTrack/>. Tagging data were updated two days after fish were tagged. Data from real-time receivers was automatically updated every hour.
 
-## Deliverables:
+## Deliverables
 
 1.  Website and email daily updates of arrival times, movement rates, and percent detected for each release group beginning immediately after the release of the first group.
 2.  Website updated weekly with real-time data, summary statistics of real-time survival and routing, and predictions based on models fitted to historical late-fall Chinook data.
@@ -1038,7 +1044,7 @@ The project website was updated with new web pages describing unique tagging stu
 
 Bi-weekly CVEAT conference calls and monthly ITAG virtual meetings were scheduled and moderated by ITAG facilitator Flora Cordoleani of UC Santa Cruz during the reporting period. These CVEAT calls facilitate close coordination on tagging events and receiver deployments between the many field operation leaders for the many different telemetry projects. Monthly ITAG meetings are for higher-level coordination and long-term planning for the Central Valley telemetry programs, and is attended by both field operation leaders as well as higher level agency representatives.
 
-## Deliverables:
+## Deliverables
 
 1.  Semi-annual progress reports
 2.  The database coordinator will lead a data management workshop
