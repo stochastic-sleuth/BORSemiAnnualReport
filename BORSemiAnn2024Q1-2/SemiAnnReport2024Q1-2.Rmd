@@ -105,7 +105,7 @@ render_toc("SemiAnnReport2024Q1-2.Rmd", toc_header_name = "Table of Contents")
 \newpage
 # Introduction
 
-This report summarizes the fieldwork, data collection, and analysis performed by UC Santa Cruz (UCSC) between `r beginmo` and `r  enddatechar`, as part of the Cooperative Agreement R21AC10455 between the US Bureau of Reclamation (USBR) and UCSC. This is the fourth semi-annual report for the Cooperative Agreement R21AC10455, extending from April 1, 2021 to September 30, 2026. This semi-annual report outlines deliverables for the six tasks described by the agreement.
+This report summarizes the fieldwork, data collection, and analysis performed by UC Santa Cruz (UCSC) between `r begindatechar` and `r  enddatechar`, as part of the Cooperative Agreement R21AC10455 between the US Bureau of Reclamation (USBR) and UCSC. This is the fourth semi-annual report for the Cooperative Agreement R21AC10455, extending from April 1, 2021 to September 30, 2026. This semi-annual report outlines deliverables for the six tasks described by the agreement.
 
 ```{r callR, include=FALSE}
 ##Table 1. Location of real-time JSATS receivers with the date first operational in real-time
@@ -230,7 +230,7 @@ st<- st$n
 
 ```
 
-There were `r nrow(Rec_Dep6)` real-time receivers deployed and/or retrieved during this quarter (Table 1). All acoustic receivers stationed in the Lower Sacramento River (`r sac`), Stanislaus River (`r st`), and Carquinez Straight (`r cs`) were retrieved and deployed by UCSC.
+There were `r nrow(Rec_Dep6)` real-time receivers deployed and/or retrieved during this report period (Table 1). All acoustic receivers stationed in the Lower Sacramento River (`r sac`), Stanislaus River (`r st`), and Carquinez Straight (`r cs`) were retrieved and deployed by UCSC.
 
 All real-time receivers shown in Table 1 were operational during this quarter, except for temporary receiver outages due to SD card failure, modem disconnect. Site visits were conducted at all locations for quarterly data downloads, maintenance, and SD card swaps. Maintenance for the instruments included updating firmware, replacing two receivers at Meridian Bridge and Benicia, installing new beacon tags and a new hydrophone.
 
@@ -395,9 +395,10 @@ Vemco_Dep5<-Vemco_Dep4[,c("GPSname","GenLat", "GenLon", "Genrkm","VemcoSN",
 #remove row numbers
 rownames(Vemco_Dep5) <- c()
 
+begin<- begindate
 ```
 
-UCSC deployed or retrieved `r nrow(Vemco_Dep5)` Vemco receivers between `r begindate` and `r enddate` (Table 3). All Golden Gate receivers were acoustic release style. These receivers are used to anchor JSATS receivers, but also serve a double purpose as a hydrophone for Vemco tags.
+UCSC deployed or retrieved `r nrow(Vemco_Dep5)` Vemco receivers between `r begindatechar` and `r enddatechar` (Table 3). All Golden Gate receivers were acoustic release style. These receivers are used to anchor JSATS receivers, but also serve a double purpose as a hydrophone for Vemco tags.
 
 ```{r table3, echo=FALSE}
 
@@ -627,7 +628,7 @@ STtag6
 
 ## Tag Retention Studies
 
-```{r trtags, eval=FALSE, include=FALSE}
+```{r trtags, eval=FALSE, echo=TRUE}
 ## download the tag effects fish data set
 library(plyr)
 
@@ -675,7 +676,7 @@ TE_start<- subset(TE_start, grepl(".*24", TE_start$StudyID))
 
 ```
 
-```{r sstr, eval=FALSE, include=FALSE}
+```{r sstr, eval=FALSE, include=TRUE}
 #summarise seasonal survival tag retention
 study<- paste("Seasonal_Survival", WY, sep = "")
 SStagRT<- tagRTfish2[which(tagRTfish2$StudyID==study),]
@@ -702,23 +703,15 @@ During this report period no tags were found shed.
 
 For fall-run Chinook tagged during the first week of the Seasonal Survival Study, the average weight gained was #r SSg# and the average length gained was #r SSl# during the tag warranty duration of 71 days.
 
-```{r sttr, eval=FALSE, include=FALSE}
+```{r sttr, eval=FALSE, echo=TRUE}
 #summarise steelhead
 study<- paste("Steelhead_", WY, sep = "")
 STtagRT<- tagRTfish2[which(tagRTfish2$StudyID==study),]
 
 sttotalRT<- nrow(STtagRT)
 
-#average weight gain
-STg<- signif(mean(STtagRT$weight_end-STtagRT$Weight), 3)
-#g<- "x"
-#average length growth
-STl<- signif(mean(STtagRT$length_end-STtagRT$Length), 3)
-#l<- "y"
-
-#Count shed and mort by study
-STshedcount<- count(sheds[which(sheds$StudyID==study),])
-SSmortcount<- count(morts[which(morts$StudyID==study),])
+#no weight or length included since it falls outside of the scope of this report
+#how many weeks will this be over?
 ```
 #### San Joaquin Steelhead Tag Retention Study
 
@@ -728,7 +721,7 @@ As part of the Steelhead Survival Study, a total of #r sttotalRT# juvenile fish 
 
 #### Seasonal Surival Tag Life Study
 
-```{r ttabold, eval=FALSE,  include=FALSE, warning=FALSE}
+```{r ttabold, eval=FALSE, echo=FALSE, warning=FALSE}
 
 ###Read in tag start data for all studies
 #setwd("~/Desktop/BORSemiAnnualReport/BORSemiAnn2024Q1-2/Tag_Life/StartUpSpecSheets")
@@ -790,7 +783,7 @@ tl_wk4<- tl_wk4[1,]
 
 ```
 
-```{r readfiltered_detects, eval=FALSE, warning=FALSE, include=FALSE, echo=FALSE}
+```{r readfiltered_detects, eval=FALSE, warning=FALSE, echo=TRUE}
 #Set your wd to the file containing the 5 PRI filtered files
 setwd("~/Desktop/BORSemiAnnualReportQ3Q4DESK/Tag_Life/PRI_5_FilterFiles/")
 #Read in 5 or 3 PRI files (Only read in the TagCode and DateTime columns)
@@ -816,7 +809,7 @@ Filt_Files2<-Filt_Files %>%
          TagCode = ifelse(substr(TagCode, 1,1)==" ", paste("0", substr(TagCode, 2, 5), sep = ""), TagCode))
 ```
 
-```{r daysdetected, eval=FALSE, include=FALSE}
+```{r daysdetected, eval=FALSE, echo=TRUE}
 ###Get date dead for each tag by selecting max day a tag was detected on two consecutive days, with at least 100 detections on each day
 #Only do this for autonomous receiver files, not RT files
 
@@ -941,7 +934,7 @@ startup5<-startup4 %>%
 
 ```
 
-```{r SSTLdatedead, eval=FALSE, include=FALSE}
+```{r SSTLdatedead, eval=FALSE, echo=TRUE}
 ##Get number of tags by study
 tags_by_study<-startup5 %>%
   group_by(studyid) %>%
@@ -974,7 +967,7 @@ percent_tags_bystudy<-left_join(startup6, deadbystudy) %>%
 
 To monitor the battery life of the tags used for the Seasonal Survival Study, a 5% random sample was taken from the total proportion of tags used for each release group. In total, `r tagcount` SS400 tags were started over a period of three weeks (on `r tl_wk1`, `r tl_wk2`, and `r tl_wk3`) and placed in the tag life tank located at the NMFS-SWFSC lab, for monitoring. Data collected in this study examined the range of battery life for these particular tags, in order to correct any discrepancies in survival estimates as a result of tags shutting off prematurely. #r n# tags in the 2023 Seasonal Survival tag life study made it to the warranty life of 71 days. The average run time was #r avgrun# days with a range of #r mi# to #r ma# days.
 
-```{r SSTLweek, include=FALSE, eval=FALSE}
+```{r SSTLweek, echo=TRUE, eval=FALSE}
 ##Get number of tags by study week
 tags_by_studyWK<-startup5 %>%
   group_by(week) %>%
@@ -1010,7 +1003,7 @@ A total of 10 acoustic tags (model SS400) were randomly selected to be used in t
 ##### *Tags started week 4:* `r wk4` 
 A total of 10 acoustic tags (model SS400) were randomly selected to be used in this tag life study. Tags were started on #r wk4# and placed into the tag life tank for the duration of the study. 
 
-```{r, w1, echo=FALSE, eval=FALSE}
+```{r, w1, echo=TRUE, eval=FALSE}
 SSTLtable<-left_join(table_week, tag_model_by_week) %>%
   filter(Study == "Seasonal_Survival") %>%
   rename(Study_ID = week,
