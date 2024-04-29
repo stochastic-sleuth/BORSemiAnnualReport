@@ -3,8 +3,8 @@ title: "ENHANCED ACOUSTIC TAGGING, ANALYSIS, AND REAL-TIME MONITORING OF WILD AN
   HATCHERY SALMONIDS IN THE SACRAMENTO RIVER VALLEY"
 params:
   printcode: no
-  begindate: "October 1, 2023"
-  enddate: "March 31, 2024"
+  begindate: "April 1, 2024"
+  enddate: "September 30, 2024"
 subtitle: "Semi-annual report `r params$begindate` to `r params$enddate`"
 output:
   word_document:
@@ -22,7 +22,7 @@ always_allow_html: yes
 ---
 
 ```{r setup, include=FALSE, class.source = 'fold-hide'}
-knitr::opts_knit$set(root.dir = '~/Desktop/BORSemiAnnualReport/BORSemiAnn2024Q1-2')
+knitr::opts_knit$set(root.dir = '~/Desktop/BORSemiAnnualReport/BORSemiAnn2024Q3-4')
 knitr::opts_chunk$set(echo = params$printcode, message = FALSE)
 
 #fork a table of contents format, since word is not latex compatable
@@ -467,7 +467,7 @@ No wild fish were tagged during this report period.
 study<- paste("Seasonal_Survival_", WY, sep = "")
 
 #Select studies to look at
-#tagss<-tag[which(tag$StudyID==study),]
+tagss<-tag[which(tag$StudyID==study),]
 tagss<- read.csv("/Users/jessefrey/Desktop/BORSemiAnnualReport/BORSemiAnn2024Q1-2/Tagged_Fish_Metadata_SS_2024.csv")
 #s1<-s[which(s$StudyID==study),]
 
@@ -478,6 +478,7 @@ tagss<- read.csv("/Users/jessefrey/Desktop/BORSemiAnnualReport/BORSemiAnn2024Q1-
 # wk2<- paste(str_trim(s1[3,2]))
 # wk3<- paste(str_trim(s1[5,2]))
 # wk4<- paste(str_trim(s1[7,2]))
+wk5<- paste(str_trim(s1[9,2]))
 
 wk1<- "12/05/2023"
 wk2<- "1/30/2024"
