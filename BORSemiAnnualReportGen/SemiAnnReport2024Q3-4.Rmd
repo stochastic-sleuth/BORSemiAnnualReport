@@ -1,0 +1,1198 @@
+---
+title: "ENHANCED ACOUSTIC TAGGING, ANALYSIS, AND REAL-TIME MONITORING OF WILD AND
+  HATCHERY SALMONIDS IN THE SACRAMENTO RIVER VALLEY"
+params:
+  printcode: no
+  begindate: "April 1, 2024"
+  enddate: "September 30, 2024"
+subtitle: "Semi-annual report `r params$begindate` to `r params$enddate`"
+output:
+  word_document:
+    reference_docx: template.docx
+    toc: no
+    fig_caption: yes
+  html_document:
+    toc: no
+    toc_float: no
+    df_print: paged
+  pdf_document:
+    toc: no
+    fig_caption: yes
+always_allow_html: yes
+---
+
+```{r setup, include=FALSE, class.source = 'fold-hide'}
+knitr::opts_knit$set(root.dir = '~/Desktop/BORSemiAnnualReport/BORSemiAnn2024Q1-2')
+knitr::opts_chunk$set(echo = params$printcode, message = FALSE)
+
+#fork a table of contents format, since word is not latex compatable
+devtools::source_gist("c83e078bf8c81b035e32c3fc0cf04ee8",
+                      filename = 'render_toc.R')
+
+# load data access packages
+library(odbc) #Read in Access database off of SQL server
+library(dataRetrieval)
+library(rerddap)
+library(dbplyr)
+library(DBI) #R database management
+#load data manip packages
+library(tidyverse)
+library(data.table)
+library(grid)
+library(fs)
+library(lubridate)
+#load report generation packages
+#install.packages(rmarkdown)
+library(shiny)
+library(rmarkdown) #generate word report
+#install.packages(knitr)
+library(knitr) #generate word report
+#install.packages(flextable)
+library(flextable) #format tables
+#install.packages("officer") #format tables
+library(officer)
+#install.packages("officedown")
+library(officedown)
+library(grid)
+library(ggplot2)
+library(plotly)
+
+#set border style first time
+bord = fp_border(color="#9bb4df", width=1)
+
+set_flextable_defaults(fonts_ignore=TRUE)
+
+#store and format date params
+begindatechar<- params$begindate
+begindate<- lubridate::mdy(params$begindate)
+beginmo<- str_extract(begindatechar, "^.*(?=[[:punct:]])")
+enddatechar<- params$enddate
+enddate<- mdy(params$enddate)
+endmo<- str_extract(enddatechar, "^.*(?=[[:punct:]])")
+WY<- str_extract(params$enddate, "\\d{4}")
+```
+Prepared for:\
+United States Bureau of Reclamation\
+Cooperative Agreement R21AC10455
+
+Principal Investigator:\
+Cyril Michel\
+University of California, Santa Cruz\
+Associated with\
+NOAA Southwest Fisheries Science Center\
+Fisheries Ecology Division\
+110 McAllister Way\
+Santa Cruz CA 95060\
+[cyril.michel\@noaa.gov](mailto:cyril.michel@noaa.gov){.email}
+
+Technical Point of Contact:\
+Jeremy Notch\
+University of California, Santa Cruz\
+Associated with\
+NOAA Southwest Fisheries Science Center\
+Fisheries Ecology Division\
+110 McAllister Way\
+Santa Cruz CA 95060\
+[jeremy.notch\@noaa.gov](mailto:jeremy.notch@noaa.gov){.email}
+
+\newpage
+## Table of Contents
+```{r toc, echo=FALSE} 
+render_toc("SemiAnnReport2024Q1-2.Rmd", toc_header_name = "Table of Contents")
+```
+
+<!---BLOCK_TOC--->
+\newpage
+# Introduction
+
+This report summarizes the fieldwork, data collection, and analysis performed by UC Santa Cruz (UCSC) between `r begindatechar` and `r  enddatechar`, as part of the Cooperative Agreement R21AC10455 between the US Bureau of Reclamation (USBR) and UCSC. This is the fourth semi-annual report for the Cooperative Agreement R21AC10455, extending from April 1, 2021 to September 30, 2026. This semi-annual report outlines deliverables for the six tasks described by the agreement.
+
+```{r callR, include=FALSE}
+##Table 1. Location of real-time JSATS receivers with the date first operational in real-time
+
+con <- dbConnect(odbc(),
+                    Driver = "ODBC Driver 17 for SQL Server",
+                    Server = "calfishtrack-server.database.windows.net",
+                    Database = "JSATS_Database",
+                    UID = "jsats_user",
+                    PWD = "Pass@123")
+odbcListObjects(con)
+
+```
+
+# Task 1. Deploy real-time array of JSATS receivers
+
+```{r callRT, include=FALSE}
+##Table 1. Location of real-time JSATS receivers with the date first operational in real-time
+
+#call receiver deployment table
+Rec_Dep<-dbReadTable(con, "ReceiverDeployments")
+
+#remove NA and 999 named receivers
+Rec_Dep2<- Rec_Dep[!is.na(Rec_Dep$Location), ]
+Rec_Dep2<- Rec_Dep2[Rec_Dep2$Location != "999", ]
+Rec_Dep2<- Rec_Dep2[Rec_Dep2$Location != "Anywhere", ]
+
+#create start date col
+Rec_Dep2$StartDate<-as.Date(Rec_Dep2$StartTime,format = "%Y-%m-%d", optional=T)
+#create end date col
+Rec_Dep2$EndDate<-as.Date(Rec_Dep2$EndTime, format = "%Y-%m-%d", optional=T)
+
+#Get deployments in range interested in
+start<-Rec_Dep2[Rec_Dep2$StartDate >= begindate,]
+#this is the end date for period of interest
+start2<-start[start$StartDate <= enddate,]
+
+#grab receivers ended in period of interest
+end<- Rec_Dep2[Rec_Dep2$EndDate >= begindate,]
+end2<-end[end$EndDate <= enddate,]
+
+#grab receivers still active
+notend<- Rec_Dep2[is.na(Rec_Dep2$EndDate), ]
+notend<- notend[notend$StartDate >= begindate, ]
+
+#Make sure GPS names match
+Rec_Dep3<-unique(rbind(start2, end2, notend))
+#remove NA receiver name brought in from date filters
+Rec_Dep3<- Rec_Dep3[!is.na(Rec_Dep3$Location), ]
+
+#rename Location back to GPSname to join with Rec_Loc table
+Rec_Dep3<- Rec_Dep3 %>% dplyr::rename("GPSname" = "Location")
+
+####read in receiver locations table ####
+Rec_Loc<-dbReadTable(con, "ReceiverLocations")
+#remove 999 named location
+Rec_Loc<- Rec_Loc[Rec_Loc$GPSname != "999", ]
+Rec_Loc$GPSname<- gsub("VO_RT", "ValleyOak_RT",Rec_Loc$GPSname)
+
+#test Loc name matches
+test<- left_join(Rec_Dep3, Rec_Loc, by="GPSname")
+notmatches<- as.data.frame(which(is.na(test$GeneralLocation), arr.ind=TRUE))
+
+#show not matches
+notmatches1 <- filter(Rec_Dep3, row_number() %in% notmatches$`which(is.na(test$GeneralLocation), arr.ind = TRUE)`)
+
+if(length(notmatches) > 1) { 
+  stop("Deployment Location doesn't match General Location, see notmaches1")
+  }
+
+```
+
+```{r coverage, include=FALSE}
+#Review coverage for descriptive summary
+######################################################################################
+#find sites with multiple deployments
+dupes <- Rec_Dep3[duplicated(Rec_Dep3$GPSname),]
+#select all multiple deployments
+redeploys<- filter(Rec_Dep3, GPSname %in% dupes$GPSname)
+redeploys<- redeploys %>% 
+          arrange(GPSname, StartTime) %>% 
+          summarise(GPSname, StartTime, DataCoverage, CoverageProblem,
+                    RecDeployNotes)
+######################################################################################
+
+
+#select receiver location columns
+Rec_Loc2<-subset(Rec_Loc, select = c("GeneralLocation","rkm", "GPSname", "Region", "GenLat", "GenLon"))
+#join receiver deployments and receiver locations 
+Rec_Dep4<-unique(merge(Rec_Dep3,Rec_Loc2, all.x=TRUE))
+Rec_Dep4$GenLat<- with(Rec_Dep4, ifelse(is.na(GenLat), LatWater, GenLat))
+Rec_Dep4$GenLat<- with(Rec_Dep4, ifelse(is.na(GenLat), LatShore, GenLat))
+Rec_Dep4$GenLon<- with(Rec_Dep4, ifelse(is.na(GenLon), LonWater, GenLon))
+Rec_Dep4$GenLon<- with(Rec_Dep4, ifelse(is.na(GenLon), LonShore, GenLon))
+#reorder columns
+Rec_Dep5<-Rec_Dep4[,c("Region","GPSname","GenLat","GenLon","rkm","RecMake","SN","StartTime","EndTime")]
+#remove comma from SN
+Rec_Dep5$SN<- as.character(Rec_Dep5$SN)
+Rec_Dep5<-Rec_Dep5 %>% 
+  dplyr::rename("Lat" = "GenLat") %>%
+  dplyr::rename("Lon" = "GenLon")
+#remove row numbers
+rownames(Rec_Dep5) <- c()
+
+#Select real-time receivers
+Rec_Dep6<-Rec_Dep5[which(Rec_Dep5$RecMake=="ATS SR3017" | Rec_Dep5$RecMake=="ATS 3017" |
+                           Rec_Dep5$RecMake=="Tekno RT" | Rec_Dep5$RecMake=="Tekno" |
+                           is.na(Rec_Dep5$RecMake)),]
+
+#Order table by StartTime
+Rec_Dep6<- Rec_Dep6[order(as.Date(Rec_Dep6$StartTime, format="%d-%m-%Y")),]
+
+#Count real-time receivers by Region
+regs0<- dplyr::count(unique(Rec_Dep6),Region)
+
+#### may need to be updated
+cs<- subset(regs0, regs0$Region=='Carquinez Strait')
+cs<- cs$n
+#delta <- regs0[str_detect(regs0$Region, '^.*Delta'), ]
+#delta<- sum(delta$freq)
+#gg <- regs0[str_detect(regs0$Region, 'SF Bay'), ]
+#gg<- gg$n
+#mc<- subset(regs0, regs0$Region=='Mill Ck')
+#mc<- mc$n
+sac<- regs0[str_detect(regs0$Region, '^.*Sac'),]
+sac<- sac$n
+#sj<- subset(regs0, regs0$Region=='SanJoaquin_R')
+#sj<- sj$n
+st<- regs0[str_detect(regs0$Region, '^Stan'),]
+st<- st$n
+
+```
+
+There were `r nrow(Rec_Dep6)` real-time receivers deployed and/or retrieved during this report period (Table 1). All acoustic receivers stationed in the Lower Sacramento River (`r sac`), Stanislaus River (`r st`), and Carquinez Straight (`r cs`) were retrieved and deployed by UCSC.
+
+All real-time receivers shown in Table 1 were operational during this quarter, except for temporary receiver outages due to SD card failure, modem disconnect. Site visits were conducted at all locations for quarterly data downloads, maintenance, and SD card swaps. Maintenance for the instruments included updating firmware, replacing two receivers at Meridian Bridge and Benicia, installing new beacon tags and a new hydrophone.
+
+A detailed spreadsheet of all real-time receiver deployments can be found here: <https://docs.google.com/spreadsheets/d/1oBfEO3cIdP9PJaLxyN9kJ2yYpufTfGIIDvBtVnU8muo/edit#gid=79918077>
+
+```{r table1, echo=FALSE}
+
+#pipe data to table and give caption
+RecDep6<- Rec_Dep6%>%
+  flextable() %>%
+    set_caption(caption = "Table 1. Location of real-time JSATS receivers deployed during this report period with the date first operational in real-time")%>%
+    font(fontname = "Times New Roman", part = "all") %>% 
+    fontsize(size = 11, part = "body")%>%
+    width(width = .75)
+
+#set table style
+RecDep6<- theme_zebra(RecDep6, odd_header="#4472c4", odd_body ="#d9e2f3", even_header="transparent", even_body="transparent")
+RecDep6<- border_outer(RecDep6, part="all", border= bord)
+RecDep6<- border_inner(RecDep6, part="body", border=bord)
+RecDep6<- align(RecDep6, align = "center", part = "all")
+
+
+#print table
+RecDep6
+
+```
+
+Deliverables 1-4 were met by posting data relating to survival and movement to the website: <https://oceanview.pfeg.noaa.gov/CalFishTrack>
+
+## Deliverables
+
+1.  Web-accessible reporting status of real-time receivers
+2.  Real-time data available through ERDDAP data server, updated daily
+3.  Web-accessible real-time receiver data available in open data format
+4.  Web-accessible summary database of deployment of receivers
+5.  Data quality assurance of no more than 3 days of downtime before a site visit to reestablish real-time operations
+6.  Provide a semi-annual compiled raw data file for each real-time receiver along with deployment metadata to Arnold Ammann (NMFS)
+
+# Task 2. Deploy autonomous array of JSATS and Vemco receivers
+
+## Autonomous Receiver Deployment
+
+```{r callAT, include=FALSE}
+##Table 2. Autonomous JSATS receivers active, deployed, or retrieved between report dates
+
+#Collect autonomous JSATS
+#Select real-time receivers
+Rec_Dep7<-Rec_Dep5[which(Rec_Dep5$RecMake!="ATS SR3017" & 
+                               Rec_Dep5$RecMake!="ATS 3017" &
+                               Rec_Dep5$RecMake!="Tekno RT" &
+                               Rec_Dep5$RecMake!="Tekno"),]
+
+#Count receivers by Region
+regs1<- dplyr::count(Rec_Dep7,Region)
+
+#### may need to be updated
+
+bc<- regs1[str_detect(regs1$Region, '^.*Butte'), ]
+bc<- bc$n
+#delta <- regs1[str_detect(regs1$Region, '^.*Delta'), ]
+#delta<- delta$n
+gg <- subset(regs1, regs1$Region== "SF Bay")
+gg<- gg$n
+#mc<- subset(regs1, regs1$Region=="Mill Ck")
+#mc<- mc$freq
+mcr<- subset(regs1, regs1$Region=="McCloud R")
+mcr<- mcr$n
+sac<- regs1[str_detect(regs1$Region, '^.*Sac'), ]
+sac<- sac$n
+sb<- regs1[str_detect(regs1$Region, '^.*Sut'), ]
+sb<- sb$n
+sj<- subset(regs1, regs1$Region=="SanJoaquin_R")
+sj<- sj$n
+sr<- subset(regs1, regs1$Region=="Stanislaus R")
+sr<- sr$n
+
+```
+
+There were `r nrow(Rec_Dep7)` autonomous receivers retrieved and/or deployed during this report period (Table 2). All acoustic receivers stationed in the Sacramento River, Delta, and Golden Gate were retrieved and deployed by UCSC. These locations include the McCloud River (`r mcr`), Butte Creek (`r bc`), the Sutter Bypass (`r sb`), the lower Sacramento River (`r sac`), the Stanislaus River (`r sr`), and Golden Gate (`r gg`).
+
+```{r table2, echo=FALSE}
+
+#Order table by StartTime
+Rec_Dep7<-Rec_Dep7[order(as.Date(Rec_Dep7$StartTime, format="%d-%m-%Y")),]
+#remove row numbers
+rownames(Rec_Dep7) <- c()
+#format SNs
+Rec_Dep7$SN<- as.character(Rec_Dep7$SN)
+
+#pipe data to table and give caption
+RecDep7<- Rec_Dep7 %>%
+    flextable() %>%
+  set_caption("Table 2. Autonomous JSATS receivers deployed and retrieved during this report period") %>%
+  font(fontname = "Times New Roman", part = "all") %>%
+  fontsize(size = 11, part = "body") %>%
+  width(width = .75)
+
+#set table style
+RecDep7<- theme_zebra(RecDep7, odd_header="#4472c4", odd_body ="#d9e2f3", even_header="transparent", even_body="transparent")
+RecDep7<- border_outer(RecDep7, part="all", border= bord)
+RecDep7<- border_inner(RecDep7, part="body", border=bord)
+RecDep7<- align(RecDep7, align = "center", part = "all")
+
+#print table
+RecDep7
+```
+
+
+## Vemco Receiver Deployment
+
+```{r callVM, include=FALSE}
+
+Vemco_Dep<-dbReadTable(con, "VemcoReceiverDeployments")
+# note these are stored without a region variable, unlike Autonomous
+Vemco_Dep2<-subset(Vemco_Dep, select = c("GPSname", "VemcoSN", "StartTime", "EndTime", "LatShore", "LonShore", "LatWater", "LonWater"))
+
+
+Vemco_Dep2$StartDate<-as.Date(Vemco_Dep2$StartTime, format = "%Y-%m-%d")
+Vemco_Dep2$EndDate<-as.Date(Vemco_Dep2$EndTime, format = "%Y-%m-%d")
+
+
+#Remove all 999 GPS name recievers
+Vemco_Dep2<-Vemco_Dep2[which(Vemco_Dep2$GPSname!=999),]
+
+######################################Edit below to change range of dates
+#Get vemco deployments in range we're interested in
+start<-Vemco_Dep2[Vemco_Dep2$StartDate >= begindate,]
+start2<-start[start$StartTime <= enddate,]
+end<-na.omit(Vemco_Dep2[which(Vemco_Dep2$EndTime >= begindate),])
+end2<-end[end$EndTime <= enddate,]
+
+
+#Add in active receivers not started in this quarter and remove 'active' receivers from previous year
+a<-Vemco_Dep2[is.na(Vemco_Dep2$EndTime),]
+end3<-rbind(end2,a)
+end4<-end3[end3$StartTime >= begindate,]
+
+#Make sure GPS names match
+Vemco_Dep3<-unique(rbind(start2, end4))
+Vemco_Dep3<- subset(Vemco_Dep3, !is.na(GPSname))
+
+test2<- left_join(Vemco_Dep3, Rec_Loc, by="GPSname")
+vemco_missing_GENLOC<- test2[which(is.na(test2$GeneralLocation), arr.ind=TRUE),]
+
+
+###Add location to Vemco Receivers
+#bring in site name and rkm data
+
+vloc<-subset(Rec_Loc, select = c("GeneralLocation", "Genrkm", "GPSname", "GenLat", "GenLon"))
+
+Vemco_Dep4<-merge(vloc,Vemco_Dep3, all.y = TRUE)
+Vemco_Dep4$GenLat<- with(Vemco_Dep4, ifelse(is.na(GenLat), LatWater, GenLat))
+Vemco_Dep4$GenLat<- with(Vemco_Dep4, ifelse(is.na(GenLat), LatShore, GenLat))
+Vemco_Dep4$GenLon<- with(Vemco_Dep4, ifelse(is.na(GenLon), LonWater, GenLon))
+Vemco_Dep4$GenLon<- with(Vemco_Dep4, ifelse(is.na(GenLon), LonShore, GenLon))
+
+#Order table by start time
+Vemco_Dep4<-Vemco_Dep4[order(as.Date(Vemco_Dep4$StartTime, format="%d-%m-%Y")),]
+
+Vemco_Dep5<-subset(Vemco_Dep4, select = c("GPSname","GenLat", "GenLon", "Genrkm","VemcoSN",
+                          "StartTime","EndTime")) %>%
+  dplyr::rename("Lat" = "GenLat") %>%
+  dplyr::rename("Lon" = "GenLon") %>%
+  dplyr::rename("rkm" = "Genrkm")
+
+#remove row numbers
+rownames(Vemco_Dep5) <- c()
+
+begin<- begindate
+```
+
+UCSC deployed or retrieved `r nrow(Vemco_Dep5)` Vemco receivers between `r begindatechar` and `r enddatechar` (Table 3). All Golden Gate receivers were acoustic release style. These receivers are used to anchor JSATS receivers, but also serve a double purpose as a hydrophone for Vemco tags.
+
+```{r table3, echo=FALSE}
+
+#pipe data to table and give caption
+VemDep5<- Vemco_Dep5%>%
+  flextable() %>%
+    set_caption(caption = "Table 3. Vemco receivers active, deployed, or retrieved during this report period") %>%
+    font(fontname = "Times New Roman", part = "all") %>% 
+    fontsize(size = 11, part = "body") %>%
+    width(width = .75)
+
+#set table style
+VemDep5<- theme_zebra(VemDep5, odd_header="#4472c4", odd_body ="#d9e2f3", even_header="transparent", even_body="transparent")
+VemDep5<- border_outer(VemDep5, part="all", border= bord)
+VemDep5<- border_inner(VemDep5, part="body", border=bord)
+VemDep5<- align(VemDep5, align = "center", part = "all")
+
+#print table
+VemDep5
+
+```
+
+## Deliverables
+
+1.  Provide data to ITAG JSATS Database coordinator and web-accessible autonomous receiver data (via ERDDAP) within 30 days of downloading
+2.  Web-accessible semi-annual log of deployment and download activity including what sites were visited and operational coverage for each receiver
+
+# Task 3. Source, obtain, and tag wild winter and spring-run Chinook salmon
+
+## Acoustic Tagging of Wild Chinook
+
+```{r calltagged, echo=FALSE, warning=FALSE }
+## download the tagged fish data set
+library(plyr)
+TaggedFish<- tbl(con, "TaggedFish") %>%
+                   collect()
+
+# select tagged fish beginning with report period
+tag <- TaggedFish %>%
+              mutate(DateTagged = as.POSIXct(DateTagged)) %>% #Format datetime
+              mutate(Rel_datetime = as.POSIXct(Rel_datetime)) %>% #Format datetime
+              dplyr::filter(DateTagged >= begindate)
+
+#Summary table of studies and release dates
+s<-unique(tag[,c("StudyID","DateTagged")])
+
+```
+
+#### Butte Sink Study
+```{r buttefish, echo=FALSE }
+
+#Select studies to look at
+tagbs<-tag[which(tag$StudyID=="ButteSink_2024"),]
+
+butte<-unique(tagbs[,c("StudyID","Fish_Type","Rel_loc","DateTagged","Rel_datetime")])
+
+tagbs$fish_number<-1
+
+#Create summary table
+BStag_table<- plyr::ddply(tagbs, .(DateTagged), summarise, count=sum(fish_number), 
+                          meanW=mean(Weight), meanL=mean(Length), SD_W=sd(Weight), 
+                          SD_L=sd(Length), min_W=min(Weight), min_L=min(Length),
+                          max_W=max(Weight), max_L=max(Length))
+
+#Set decimal place to 2
+BStag4<-as.data.frame(lapply(BStag_table[sapply(BStag_table, is.numeric)], round, 2))
+#Add back in rel datetime row
+BStag4$DateTagged<-BStag_table$DateTagged
+
+BStag5<-merge(BStag4,butte)
+
+BStag5<-BStag5[order(BStag5$Rel_datetime),]
+
+#Reduced table for report
+BStag6<-BStag5[,c("StudyID", "Fish_Type", "Rel_loc", "count", "Rel_datetime", "meanW", "meanL")]
+names(BStag6)[names(BStag6)=="Rel_loc"]<-"Release Loc"
+names(BStag6)[names(BStag6)=="count"]<-"Count"
+names(BStag6)[names(BStag6)=="Rel_datetime"]<-"Release Date"
+names(BStag6)[names(BStag6)=="meanW"]<-"Avg Weight"
+names(BStag6)[names(BStag6)=="meanL"]<-"Avg Length"
+names(BStag6)[names(BStag6)=="Fish_Type"]<-"Fish Type"
+
+buttetotal<- sum(BStag6$Count)
+
+```
+
+```{r table4, echo=FALSE }
+
+wildtag6<- BStag6
+
+#pipe data to table and give caption
+wildtag6<- wildtag6%>%
+  flextable() %>%
+    set_caption(caption = "Table 4. Wild Chinook acoustic tagged during this report period.") %>%
+    font(fontname = "Times New Roman", part = "all") %>%
+    fontsize(size = 11, part = "body") %>% 
+    width(width = .75)
+
+#set table style
+wildtag6<- theme_zebra(wildtag6, odd_header="#4472c4", odd_body ="#d9e2f3", even_header="transparent", even_body="transparent")
+wildtag6<- border_outer(wildtag6, part="all", border= bord)
+wildtag6<- border_inner(wildtag6, part="body", border=bord)
+wildtag6<- align(wildtag6, align = "center", part = "all")
+
+#print table
+wildtag6
+
+```
+
+## Tag Life Test
+
+## Deliverables
+
+1.  Final Pre-season tagging plan available via the website
+2.  Web-accessible Telemetry Study Summary no more than 96 hours after the release of fish
+3.  Annual technical report summarizing results from the previous study year
+4.  Final report summarizing the results of the three study years
+5.  One peer reviewed publication
+
+# Task 4. Implant AT into a portion of hatchery produced juvenile Chinook salmon juveniles and Steelhead
+
+## Acoustic Tagging of Chinook Salmon juveniles
+
+#### Seasonal Survival Study
+
+```{r SSfish, include=FALSE}
+study<- paste("Seasonal_Survival_", WY, sep = "")
+
+#Select studies to look at
+tagss<-tag[which(tag$StudyID==study),]
+s1<-s[which(s$StudyID==study),]
+
+#cleanup date for week vars
+s1$DateTagged<- gsub("17:00:00", "",s1$DateTagged)
+s1<-  arrange(s1, DateTagged)
+wk1<- paste(str_trim(s1[1,2]))
+wk2<- paste(str_trim(s1[3,2]))
+wk3<- paste(str_trim(s1[5,2]))
+wk4<- paste(str_trim(s1[7,2]))
+
+#collect day vars
+s2<-unique(tagss[,c("StudyID","Fish_Type","Raceway", "Rel_loc","DateTagged","Rel_datetime", "Rel_group")])
+
+#add fish number to count fish
+tagss$fish_number<-1
+
+#Create summary table
+SStag_table<- plyr::ddply(tagss, .(DateTagged, Rel_group), summarise, count=sum(fish_number), 
+                 meanW=mean(Weight), meanL=mean(Length), 
+                 SD_W=sd(Weight), SD_L=sd(Length), min_W=min(Weight), min_L=min(Length),
+                 max_W=max(Weight), max_L=max(Length))
+
+
+SStag4<- SStag_table %>% 
+ dplyr::mutate_if(is.numeric, round, digits=2)
+
+SStag5<-left_join(SStag4, s2, by="Rel_group")
+
+SStag5<-SStag5[order(SStag5$Rel_datetime),]
+
+#Reduced table for report
+SStag6<-SStag5[,c("StudyID", "Fish_Type", "Rel_loc", "Raceway", "count", "Rel_datetime", "meanW", "meanL")]
+names(SStag6)[names(SStag6)=="Rel_loc"]<-"Release Loc"
+names(SStag6)[names(SStag6)=="count"]<-"Count"
+names(SStag6)[names(SStag6)=="Rel_datetime"]<-"Release Date"
+names(SStag6)[names(SStag6)=="meanW"]<-"Avg Weight"
+names(SStag6)[names(SStag6)=="meanL"]<-"Avg Length"
+names(SStag6)[names(SStag6)=="Fish_Type"]<-"Fish Type"
+
+sstotal<- sum(SStag6$Count)
+
+```
+
+UCSC staff implanted `r sstotal` acoustic tags into hatchery produced jumpstart winter-run and late-fall run Chinook smolts as part of the Seasonal Survival Study during this report period. Releases of these fish were spaced out across five weeks, with one week of tagging occurring during the third quarter on 4/01/24 and 4/02/24 with the intention of gathering movement and survival data across a range of environmental conditions during winter. These fish were tagged at Coleman Fish Hatchery and transported to the Red Bluff Diversion Dam (RBDD_Rel) to increase the sample size of fish in downstream reaches. Fish were available for tagging with the help and assistance of the U.S. Fish and Wildlife Service. Tagged fish are shown in Table 4.
+
+Preliminary movement and survival data can be found here: <https://oceanview.pfeg.noaa.gov/CalFishTrack/pageSeasSurv_2024.html>
+
+```{r SStable, echo=FALSE }
+#pipe data to table and give caption
+SStag6<- SStag6%>%
+  flextable() %>%
+    set_caption(caption = "Table 4. Hatchery Chinook acoustic tagged during this report period.") %>%
+    font(fontname = "Times New Roman", part = "all") %>%
+    fontsize(size = 11, part = "body") %>% 
+    width(width = .75)
+
+#set table style
+SStag6<- theme_zebra(SStag6, odd_header="#4472c4", odd_body ="#d9e2f3", even_header="transparent", even_body="transparent")
+SStag6<- border_outer(SStag6, part="all", border= bord)
+SStag6<- border_inner(SStag6, part="body", border=bord)
+SStag6<- align(SStag6, align = "center", part = "all")
+
+#print table
+SStag6
+
+```
+```{r pulsefish, echo=FALSE }
+study<- paste("Spring_Pulse_", WY, sep = "")
+
+#Select studies to look at
+tagsp<-tag[which(tag$StudyID==study),]
+
+tagsp$fish_number<-1
+tagsp<- tagsp %>% drop_na(Weight)
+
+# #cleanup date for week vars
+sp2<-unique(tagsp[,c("StudyID","Fish_Type","Raceway", "Rel_loc","DateTagged","Rel_datetime", "Rel_group")])
+sp2$DateTagged<- gsub("17:00:00", "",sp2$DateTagged)
+sp2<-  arrange(sp2, DateTagged)
+wk1<- paste(str_trim(sp2[1,5]))
+wk2<- paste(str_trim(sp2[3,5]))
+wk3<- paste(str_trim(sp2[5,5]))
+wk4<- paste(str_trim(sp2[7,5]))
+
+#Create summary table
+SPtag_table<- plyr::ddply(tagsp, .(DateTagged, Rel_group), summarise, 
+                 count=sum(fish_number+1), meanW=mean(Weight), meanL=mean(Length), 
+                 SD_W=sd(Weight), SD_L=sd(Length), min_W=min(Weight), min_L=min(Length),
+                 max_W=max(Weight), max_L=max(Length))
+
+SPtag4<- SPtag_table %>% 
+ dplyr::mutate_if(is.numeric, round, digits=2)
+
+SPtag5<-left_join(SPtag4,sp2, by="Rel_group")
+
+# SPtag5<-SPtag5[order(SPtag5$Rel_datetime),]
+
+#Reduced table for report
+SPtag6<-SPtag5[,c("StudyID", "Fish_Type", "Rel_loc", "Raceway", "count", "Rel_datetime", "meanW", "meanL")]
+names(SPtag6)[names(SPtag6)=="Rel_loc"]<-"Release Loc"
+names(SPtag6)[names(SPtag6)=="count"]<-"Count"
+names(SPtag6)[names(SPtag6)=="Rel_datetime"]<-"Release Date"
+names(SPtag6)[names(SPtag6)=="meanW"]<-"Avg Weight"
+names(SPtag6)[names(SPtag6)=="meanL"]<-"Avg Length"
+names(SPtag6)[names(SPtag6)=="Fish_Type"]<-"Fish Type"
+
+sptotal<- sum(SPtag6$Count)
+
+```
+
+#### Spring Pulse Flow Study
+
+During this period UCSC staff implanted `sptotal` acoustic tags into hatchery produced late-fall run Chinook smolts as part of the 2024 Spring Pulse Flow study between 5/05/2024 and 5/27/2024.
+
+```{r table5, echo=FALSE }
+#pipe data to table and give caption
+SPtag6<- SPtag6%>%
+  flextable() %>%
+    set_caption(caption = "Table 5. Hatchery fish acoustic tagged for the Spring Pulse Flow Study.") %>%
+    font(fontname = "Times New Roman", part = "all") %>%
+    fontsize(size = 11, part = "body") %>% 
+    width(width = .75)
+
+#set table style
+SPtag6<- theme_zebra(SPtag6, odd_header="#4472c4", odd_body ="#d9e2f3", even_header="transparent", even_body="transparent")
+SPtag6<- border_outer(SPtag6, part="all", border= bord)
+SPtag6<- border_inner(SPtag6, part="body", border=bord)
+SPtag6<- align(SPtag6, align = "center", part = "all")
+
+#print table
+SPtag6
+
+```
+## Acoustic Tagging of Juvenile Steelhead
+```{r STfish, echo=FALSE}
+study<- paste("SJ_Steelhead_", WY, sep = "")
+
+#Select studies to look at
+tagst<-tag[which(tag$StudyID==study),]
+st1<-s[which(s$StudyID==study),]
+st1$DateTagged<- gsub("17:00:00", "",st1$DateTagged)
+st1<-  arrange(st1, DateTagged)
+# stwk1<- paste(str_trim(st1[1,2]))
+# stwk2<- paste(str_trim(st1[3,2]))
+# stwk3<- paste(str_trim(st1[5,2]))
+
+stwk1<- "4/15/2024"
+stwk2<- "5/06/2024"
+# 
+# tagst<- read.csv("/Users/jessefrey/Desktop/BORSemiAnnualReport/BORSemiAnn2024Q1-2/Tagged_Fish_Metadata_SJ_2024.csv")
+
+#collect day vars
+st2<-unique(tagst[,c("StudyID","Fish_Type","Raceway", "Rel_loc","DateTagged","Rel_datetime", "Rel_group")])
+
+
+#add fish number to count fish
+tagst$fish_number<-1
+
+#Create summary table
+STtag_table<- plyr::ddply(tagst,.(Rel_group),summarise, count=sum(fish_number), 
+                 meanW=mean(Weight), meanL=mean(Length), 
+                 SD_W=sd(Weight), SD_L=sd(Length), min_W=min(Weight), min_L=min(Length),
+                 max_W=max(Weight), max_L=max(Length))
+
+#Set decimal place to 2
+#add ifelse
+STtag4<- STtag_table %>% 
+ dplyr::mutate_if(is.numeric, round, digits=2)
+
+STtag4<- left_join(STtag4, st2, by="Rel_group")
+
+# STtag5<-STtag4[,c("Raceway", "Rel_group","meanL", "count", "DateTagged", "StudyID")]
+# # STtag5<-STtag5[order(STtag5$min_L),]
+# # STtag5<- bind_cols(STtag5, STtag4)
+# # 
+# 
+# # STtag5<-merge(STtag4,st2)
+# 
+STtag5<-STtag4[order(STtag4$DateTagged),]
+
+#Reduced table for report
+STtag6<-STtag5[,c("Rel_group", "Raceway", "count", "DateTagged", "meanW", "meanL")]
+STtag6<- join(STtag6, st2)
+STtag6<-STtag6[,c("StudyID", "Fish_Type", "Rel_loc", "Raceway", "count", "Rel_datetime", "meanW", "meanL")]
+names(STtag6)[names(STtag6)=="Rel_loc"]<-"Release Loc"
+names(STtag6)[names(STtag6)=="count"]<-"Count"
+names(STtag6)[names(STtag6)=="Rel_datetime"]<-"Release Date"
+names(STtag6)[names(STtag6)=="meanW"]<-"Avg Weight"
+names(STtag6)[names(STtag6)=="meanL"]<-"Avg Length"
+names(STtag6)[names(STtag6)=="Fish_Type"]<-"Fish Type"
+
+sttotal<- sum(STtag6$Count)
+
+```
+
+UCSC staff implanted `r sttotal` acoustic tags into hatchery produced Steelhead at Mokelumne Fish Hatchery and transported to three release sites at Head of Old River, Durham Ferry, and Dos Reis on the San Joaquin River during two weeks staring 4/15/24 and 5/0624. Fish were available for tagging with the help and assistance of the U.S. Fish and Wildlife Service. The first release group of tagged fish is shown in Table 5. 
+
+Preliminary movement and survival data can be found here: <https://oceanview.pfeg.noaa.gov/CalFishTrack/pageSJSTH_2024.html>
+
+```{r STtable, echo=FALSE}
+#pipe data to table and give caption
+STtag6<- STtag6%>%
+  flextable() %>%
+    set_caption(caption = "Table 5. Hatchery Steelhead acoustic tagged during this report period.") %>%
+    font(fontname = "Times New Roman", part = "all") %>%
+    fontsize(size = 11, part = "body") %>% 
+    width(width = .75)
+
+#set table style
+STtag6<- theme_zebra(STtag6, odd_header="#4472c4", odd_body ="#d9e2f3", even_header="transparent", even_body="transparent")
+STtag6<- border_outer(STtag6, part="all", border= bord)
+STtag6<- border_inner(STtag6, part="body", border=bord)
+STtag6<- align(STtag6, align = "center", part = "all")
+
+#print table
+STtag6
+
+```
+
+## Tag Retention Studies
+
+```{r trtags, eval=FALSE, echo=TRUE}
+## download the tag effects fish data set
+library(plyr)
+
+TE_start<- tbl(con, "Tag_Effects_Start") %>%
+                    collect()
+TE_end<- tbl(con, "Tag_Effects_End") %>%
+                    collect()
+
+##read in tag shed date, this will need to be a csv
+# shed<- read.csv("~/Desktop/BORSemiAnnualReportQ3Q4DESK/Tag_Effects/Tag_Effects_Shed_Mort_List.csv", header = T)
+
+
+##format colnames
+TE_start<- TE_start %>% 
+  subset(select=c("TagID_Hex","DateTagged","Weight_Start","Length_Start","StudyID"))
+
+TE_end<- TE_end %>% 
+  subset(select=c("TagID_Hex","Date_Euthanized","Weight_End","Length_End","StudyID"))
+
+##format dates
+TE_start$DateTagged<-as.Date(TE_start$DateTagged, format = "%m/%d/%Y")
+###TE_end$Date_Euthenized<-as.Date(TE_end$Date_Euthenized, format = "%m/%d/%Y")
+
+# shed$Date_Recovered<-as.Date(shed$Date_Recovered, format = "%m/%d/%Y")
+
+##select studies in report WY
+TE_start<- subset(TE_start, grepl(".*24", TE_start$StudyID))
+#join beginning and end by acoustic tag ID
+tagRTfish<- left_join(TE_start, TE_end)
+
+#join shed codes and dates
+#tagRTfish2<- full_join(tagRTfish, shed)
+
+# #remove morts for stats
+# morts<- tagRTfish2[which(tagRTfish2$Recovery_Method=="MORT"),]
+# mortlist<- morts$Tag.ID
+# tagRTfish2<- tagRTfish2[ ! tagRTfish2$Tag.ID %in% mortlist, ]
+# #remove sheds for stats
+# sheds<- tagRTfish2[which(tagRTfish2$Recovery_Method=="SHED"),]
+# shedlist<- sheds$Tag.ID
+# tagRTfish2<- tagRTfish2[ ! tagRTfish2$Tag.ID %in% shedlist, ]
+# 
+# #remove entries for unknown shed tags
+# tagRTfish2<- tagRTfish2[which(tagRTfish2$Tag.ID!=""),]
+
+```
+
+```{r sstr, eval=FALSE, include=TRUE}
+#summarise seasonal survival tag retention
+study<- paste("Seasonal_Survival", WY, sep = "")
+SStagRT<- tagRTfish2[which(tagRTfish2$StudyID==study),]
+
+sstotalRT<- nrow(SStagRT)
+
+#average weight gain
+SSg<- signif(mean(SStagRT$weight_end-SStagRT$Weight), 3)
+#g<- "x"
+#average length growth
+SSl<- signif(mean(SStagRT$length_end-SStagRT$Length), 3)
+#l<- "y"
+
+#Count shed and mort by study
+SSshedcount<- count(sheds[which(sheds$StudyID==study),])
+SSmortcount<- count(morts[which(morts$StudyID==study),])
+```
+
+#### Seasonal Survival Tag Retention Study
+
+As part of the Seasonal Survival Study, a total of #r sstotalRT# juvenile winter run and fall-run Chinook salmon were tagged at CNFH and LSNFH across eight weeks (`r wk1`, `r wk2`, `r wk3`, and `r wk4`). Fall-run Chinook were transported to the NMFS-SWFSC lab where they were held on-site. Winter-run fish remained at LSNFH. The fish were fed and the tanks checked daily for expelled tags. Fish were measured and weighed at the start and end of the six week tag retention study. At the end of the study, all fish were processed and inspected for shed tags.
+
+During this report period no tags were found shed. 
+
+For fall-run Chinook tagged during the first week of the Seasonal Survival Study, the average weight gained was #r SSg# and the average length gained was #r SSl# during the tag warranty duration of 71 days.
+
+```{r sttr, eval=FALSE, echo=TRUE}
+#summarise steelhead
+study<- paste("Steelhead_", WY, sep = "")
+STtagRT<- tagRTfish2[which(tagRTfish2$StudyID==study),]
+
+sttotalRT<- nrow(STtagRT)
+
+#no weight or length included since it falls outside of the scope of this report
+#how many weeks will this be over?
+```
+#### San Joaquin Steelhead Tag Retention Study
+
+As part of the Steelhead Survival Study, a total of #r sttotalRT# juvenile fish were tagged at Mokelumne Fish Hatchery and transported to the NMFS-SWFSC lab where they were held on-site. Fish were fed and the tanks checked daily for expelled tags, and were measured and weighed at the trial start. At the end of the >>six week..needs update<< tag retention study, all fish will be measured and weighed, processed and inspected for shed tags. 
+
+## Tag Life Tests
+
+#### Seasonal Surival Tag Life Study
+
+```{r ttabold, eval=FALSE, echo=FALSE, warning=FALSE}
+
+###Read in tag start data for all studies
+#setwd("~/Desktop/BORSemiAnnualReport/BORSemiAnn2024Q1-2/Tag_Life/StartUpSpecSheets")
+# list the folders in this file
+#files <- list.files("~/Desktop/BORSemiAnnualReport/BORSemiAnn2024Q1-2/Tag_Life/StartUpSpecSheets/")
+
+# #Number of columns and column names must match exactly for this to work
+# data2<-lapply(files, read.table, header=TRUE, sep=",")
+# for (i in 1:length(data2)){data2[[i]]<-cbind(data2[[i]],files[i])}
+# startup <- do.call("rbind", data2) 
+# 
+# startup2<-startup %>%
+#   dplyr::rename(studyid = `files[i]`) %>%
+#   mutate(Date = as.Date(DateTime, format = "%m/%d/%Y"),
+#          studyid = sub("\\..*", "", studyid),
+#          PRI_r = round(PRI, digits=0)) %>%
+#   select(-c(Notes, PRI))
+
+# #Create warranty life table with all the options for tag model and PRI
+# TagModel<-c("SS300","SS400","SS300 bat 392", "SS400 2 bat 379","SS300","SS400","SS300 bat 392", "SS400 2 bat 379","SS400","SS300","SS400","SS300 bat 392", "SS400 2 bat 379")
+# PRI_r<-c(3,3,3,3,5,5,5,5,8,10,10,10,10)
+# warranty_life<-c(23, 48, 79, 108, 37, 71, 128, 159, 90, 68, 111, 238, 247)
+# warranty<-data.frame(TagModel, PRI_r, warranty_life)
+# 
+# #Add warranty life and warranty date to startup table
+# startup3<-left_join(startup2, warranty) %>%
+#   mutate(warranty_date = Date + warranty_life) %>%
+#   dplyr::rename(start_date = Date)
+# 
+# #write.csv(startup3, "~/Desktop/BORSemiAnnualReportQ3Q4DESK/Tag_Life/Tag_Lifestartup.csv")
+```
+
+```{r ttab, echo=FALSE}
+#got lazy and made one sheet with RR varnames, since there was no common format
+#this should be replaced by another access table
+startup<- read.csv("~/Desktop/BORSemiAnnualReport/BORSemiAnn2024Q1-2/Tag_Life/StartUpSpecSheets/tag_life_tags.csv") #got lazy and made one sheet with RR varnames
+
+startup <- startup[,1:10]
+startup<- startup %>%
+  mutate(date = as.Date(startup$start_date, format="%m/%d/%y"))
+
+tagcount<- nrow(startup)
+
+tagdays<- as.data.frame(sort(unique(startup[,"start_date"])))
+colnames(tagdays)<- "date"
+tagdays<- tagdays %>%
+  mutate(date = as.Date(tagdays$date, format="%m/%d/%y"))
+tagdays$wk<- paste("Week ", row_number(tagdays), sep="")
+startup<- left_join(startup, tagdays, by="date")
+
+tl_wk1<- subset(startup, wk == 'Week 1', select = start_date)
+tl_wk1<- tl_wk1[1,]
+tl_wk2<- subset(startup, wk == 'Week 2', select = start_date)
+tl_wk2<- tl_wk2[1,]
+tl_wk3<- subset(startup, wk == 'Week 3', select = start_date)
+tl_wk3<- tl_wk3[1,]
+tl_wk4<- subset(startup, wk == 'Week 4', select = start_date)
+tl_wk4<- tl_wk4[1,]
+
+```
+
+```{r readfiltered_detects, eval=FALSE, warning=FALSE, echo=TRUE}
+#Set your wd to the file containing the 5 PRI filtered files
+setwd("~/Desktop/BORSemiAnnualReportQ3Q4DESK/Tag_Life/PRI_5_FilterFiles/")
+#Read in 5 or 3 PRI files (Only read in the TagCode and DateTime columns)
+Filt_Files_5PRI <- 
+  list.files(pattern = "*.csv") %>% 
+  map_df(~fread(.,select = c("TagCode","DateTime_PST","recv"))) %>%
+  mutate(PRI_r = 5)
+
+# #Set your wd to the file containing the 8 PRI filtered files (for the CDFW tags)
+# setwd("~/Desktop/BORSemiAnnualReportQ3Q4DESK/Tag_Life/PRI_8_FilterFiles/")
+# Filt_Files_8PRI <-
+#   list.files(pattern = "*.csv") %>% 
+#   map_df(~fread(.,select = c("TagCode","DateTime_PST", "recv"))) %>%
+#   mutate(PRI_r = 8)
+# 
+# Filt_Files<-rbind(Filt_Files_5PRI, Filt_Files_8PRI)
+
+#Some tags are missing a leading 0 and all have a space in front of them, remove the space and add the leading zero
+#Only do this for the Lotek detections, not the RT receiver detections (once these are included...)
+
+Filt_Files2<-Filt_Files %>%
+  mutate(TagCode = ifelse(recv == 19030, TagCode, substr(TagCode, 3, 6)),
+         TagCode = ifelse(substr(TagCode, 1,1)==" ", paste("0", substr(TagCode, 2, 5), sep = ""), TagCode))
+```
+
+```{r daysdetected, eval=FALSE, echo=TRUE}
+###Get date dead for each tag by selecting max day a tag was detected on two consecutive days, with at least 100 detections on each day
+#Only do this for autonomous receiver files, not RT files
+
+rem<-Filt_Files2 %>%
+  group_by(recv, PRI_r, TagCode) %>%
+  dplyr::count(TagCode, recv, as.Date(DateTime_PST)) %>%
+  mutate(diff = NA,
+         diff = as.numeric(diff),
+         n = as.numeric(n)) %>%
+ dplyr::rename(Date2 = `as.Date(DateTime_PST)`,
+         TagID_Hex = TagCode) %>%
+  filter(Date2 > "2022-01-01") %>% #There were some weird detections in 2012, remove these
+  mutate(remove = ifelse(recv!=19030 & n < 100, "Y",
+                  ifelse(recv==19030 & n < 20, "Y", "N"))) %>% 
+  filter(remove == "N") %>%
+  arrange(recv, TagID_Hex, PRI_r, Date2)
+
+
+#For each tag code, get the difference between date and previous day detected
+for(i in 2:nrow(rem)) {
+  if(rem[i, 'recv'] == rem[i - 1, 'recv'] & rem[i, 'TagID_Hex'] == rem[i - 1, 'TagID_Hex']) {
+    rem[i, 'diff'] <- as.numeric(difftime(rem$Date2[i],rem$Date2[i - 1], units = "day"))
+  }
+}
+
+
+#When getting date dead for each tag, take the maximum day that a tag was detected on two consecutive days with at least 100 detections on both days
+date_dead<- rem %>%
+ dplyr::rename(date_dead = Date2) %>%
+  group_by(TagID_Hex, PRI_r) %>%
+  summarize(date_dead = max(date_dead))
+
+
+#Add date dead and days on to the startup dataframe
+startup4<-left_join(startup3, date_dead) %>%
+  mutate(days_on = as.numeric(difftime(date_dead, start_date)))
+
+
+#Add startup data to the detection file, remove tagIDs that aren't in the startup file
+rem2<-left_join(rem, startup4) %>%
+ dplyr::rename(Date = Date2) %>%
+  filter(!is.na(studyid)) %>%
+  mutate(detect = "Y") %>%
+  select(TagID_Hex, PRI_r, Date, studyid, start_date, detect, diff, n, TagModel) %>%
+  ungroup()
+
+
+
+###Next find and expand date ranges where tags were not detected
+
+#Find date ranges where tags were not detected
+no_det<-rem2 %>%
+  mutate(diff = ifelse(is.na(diff), 0, diff)) %>%
+  filter(diff > 1) %>%
+  mutate(first = Date - 1,
+         last = Date - (diff-1))
+
+# 
+# #Expand on those date ranges
+# no_det2<-setDT(no_det)[ , list(recv = recv, TagID_Hex = TagID_Hex, PRI_r = PRI_r, day = seq(last, first, by = "day")), by = 1:nrow(no_det)]
+# 
+# no_det3<-no_det2 %>%
+#   mutate(detect = "N") %>%
+#  dplyr::rename(Date = day) %>%
+#   select(TagID_Hex, PRI_r, Date, detect, recv)
+# 
+# no_det4<-left_join(no_det3, startup4) %>%
+#   mutate(diff = as.numeric(NA),
+#          n = as.numeric(NA)) %>%
+#   select(TagID_Hex, PRI_r, Date, studyid, start_date, detect, diff, n, TagModel, recv) %>%
+#   ungroup()
+# 
+# rem3<-rbind(rem2, no_det4) %>%
+#   mutate(days_on = as.numeric(difftime(Date, start_date), units = "days")) %>%
+#   filter(days_on > 0) %>%
+#   group_by(studyid) %>%
+#   arrange(TagID_Hex)
+
+  
+#If there were no days without detections, need to run the line with only black as the specified color
+
+# running line with only "black" produces error
+# Error in `palette()`:
+# ! Insufficient values in manual scale. 2 needed but only 1 provided.
+# Backtrace:
+#   1. base (local) `<fn>`(x)
+#   2. ggplot2:::print.ggplot(x)
+#   4. ggplot2:::ggplot_build.ggplot(x)
+#   5. base::lapply(data, scales_map_df, scales = npscales)
+#   6. ggplot2 (local) FUN(X[[i]], ...)
+#      ...
+#  13. ggplot2 (local) FUN(X[[i]], ...)
+#  14. self$map(df[[j]])
+#  15. ggplot2 (local) map(..., self = self)
+#  16. self$palette(n)
+#  17. ggplot2 (local) palette(...)
+
+rem3 %>% filter(PRI_r == 5) %>%
+ggplot(aes(days_on, TagID_Hex, group = TagID_Hex, color = detect)) +
+  geom_line() +
+  scale_color_manual(values = c("white", "black")) +
+  #scale_color_manual(values = "black") +
+  ylab("Tag ID (Hex)") + xlab("Days On") +
+  theme_bw() + theme(plot.title = element_text(hjust = 0.5), legend.position = "none",
+                     panel.grid.major=element_blank(), panel.grid.minor=element_blank())
+
+
+
+###Create plot that shows percent tags remaining by studyid (currently plotting all studies, can filter for specific studies)
+unique(startup4$studyid)
+#Add release week to the startup table
+startup5<-startup4 %>%
+  mutate(across(studyid, str_replace, "Butte_2023_Tag_Life", "Butte_Creek_2023"),
+         across(studyid, str_replace, "CDFW_BattLife_20230601", "CDFW"),
+         across(studyid, str_replace, "Seasonal_Survival_Wk1_4", "Seasonal_Survival"),
+         across(studyid, str_replace, "SJ_Wild_all", "SJ_Steelhead"),
+         across(studyid, str_replace, "Spring_Pulse_Wk1_5", "Spring_Pulse")) %>%
+  group_by(studyid) %>%
+  arrange(studyid, start_date, .by_group = T) %>%
+  mutate(NameID = match(start_date, unique(start_date))) %>%
+  mutate(week = paste(studyid, NameID, sep = "-"))
+
+```
+
+```{r SSTLdatedead, eval=FALSE, echo=TRUE}
+##Get number of tags by study
+tags_by_study<-startup5 %>%
+  group_by(studyid) %>%
+  filter(!is.na(date_dead)) %>%
+  summarise(count = n_distinct(TagID_Hex), max_day = max(days_on), start_date_min = min(start_date), start_day_max = max(start_date))
+
+
+# produces warning: 
+# Error in `[.data.table`(setDT(tags_by_study), , list(week = week, days_on = seq(0,  : 
+# All items in j=list(...) should be atomic vectors or lists. If you are trying something like j=list(.SD,newcol=mean(colA)) then use := by group instead (much quicker), or cbind or merge afterwards.
+
+dates_expstudy<-setDT(tags_by_study)[ , list(studyid = studyid, days_on = seq(0, max_day)), by = 1:nrow(tags_by_study)]
+
+# end warn
+
+#Create column for number of tags dead by study
+deadbystudy<-left_join(dates_expstudy, startup5) %>%
+  mutate(dead = ifelse(is.na(TagID_Hex), 0, 1)) %>%
+  group_by(studyid) %>%
+  arrange(days_on, .by_group = TRUE) %>%
+  mutate(cum_count = cumsum(dead))
+
+percent_tags_bystudy<-left_join(startup6, deadbystudy) %>%
+  mutate(dead_percent = (cum_count/count)*100) %>%
+  mutate(percent_alive = 100 - dead_percent) %>%
+  mutate(studyid = sub("-.*", "", week)) %>%
+  select(c(TagID_Hex, studyid, week, dead_percent, percent_alive, start_date, date_dead, days_on, max_day, TagModel))
+
+```
+
+To monitor the battery life of the tags used for the Seasonal Survival Study, a 5% random sample was taken from the total proportion of tags used for each release group. In total, `r tagcount` SS400 tags were started over a period of three weeks (on `r tl_wk1`, `r tl_wk2`, and `r tl_wk3`) and placed in the tag life tank located at the NMFS-SWFSC lab, for monitoring. Data collected in this study examined the range of battery life for these particular tags, in order to correct any discrepancies in survival estimates as a result of tags shutting off prematurely. #r n# tags in the 2023 Seasonal Survival tag life study made it to the warranty life of 71 days. The average run time was #r avgrun# days with a range of #r mi# to #r ma# days.
+
+```{r SSTLweek, echo=TRUE, eval=FALSE}
+##Get number of tags by study week
+tags_by_studyWK<-startup5 %>%
+  group_by(week) %>%
+  filter(!is.na(date_dead)) %>%
+  summarise(count = n_distinct(TagID_Hex), max_day = max(days_on), start_date_min = min(start_date), start_day_max = max(start_date))
+
+dates_exp<-setDT(tags_by_studyWK)[ , list(week = week, days_on = seq(0, max_day)), by = 1:nrow(tags_by_studyWK)]
+
+#Create column for number of tags dead by study week
+startup6<-left_join(dates_exp, startup5) %>%
+  mutate(dead = ifelse(is.na(TagID_Hex), 0, 1)) %>%
+  group_by(week) %>%
+  arrange(days_on, .by_group = TRUE) %>%
+  mutate(cum_count = cumsum(dead))
+
+percent_tags<-left_join(startup6, tags_by_study) %>%
+  mutate(dead_percent = (cum_count/count)*100) %>%
+  mutate(percent_alive = 100 - dead_percent) %>%
+  mutate(studyid = sub("-.*", "", week)) %>%
+  select(c(TagID_Hex, studyid, week, dead_percent, percent_alive, start_date, date_dead, days_on, max_day, TagModel))
+
+```
+
+##### *Tags started week 1:* `r wk1` 
+A total of 10 acoustic tags (model SS400) were randomly selected to be used in this tag life study. Tags were started on `r wk1` and placed into the tag life tank for the duration of the study. All tags in the RBDD Week 1 tag life study made it to the warranty life of 71 days and were detected consistently.
+
+##### *Tags started week 2:* `r wk2` 
+A total of 10 acoustic tags (model SS400) were randomly selected to be used in this tag life study. Tags were started on `r wk2` and placed into the tag life tank for the duration of the study. 
+
+##### *Tags started week 3:* `r wk3` 
+A total of 10 acoustic tags (model SS400) were randomly selected to be used in this tag life study. Tags were started on `r wk3` and placed into the tag life tank for the duration of the study. 
+
+##### *Tags started week 4:* `r wk4` 
+A total of 10 acoustic tags (model SS400) were randomly selected to be used in this tag life study. Tags were started on #r wk4# and placed into the tag life tank for the duration of the study. 
+
+```{r, w1, echo=TRUE, eval=FALSE}
+SSTLtable<-left_join(table_week, tag_model_by_week) %>%
+  filter(Study == "Seasonal_Survival") %>%
+  rename(Study_ID = week,
+         Tag_Model = TagModel) %>%
+  select(Study_ID, Tag_Model, Tag_Count, Start_Date, Avg_Run_Time, Run_Time_Range)
+
+SSTLplot<-percent_tags %>% filter(studyid == "Seasonal_Survival") %>%
+ggplot(aes(days_on, percent_alive, group = week, color = week)) +
+  geom_line(linewidth=1.2) +
+  scale_color_discrete(name = "Study Week",
+                     breaks = c("Seasonal_Survival-1", "Seasonal_Survival-2", "Seasonal_Survival-3", "Seasonal_Survival-4"),
+                     labels = c("One","Two","Three","Four")) +
+  geom_segment(aes(x = 71, y = 0, xend = 71, yend = 100), linetype = "longdash", color = "black", size = 1) +
+  scale_x_continuous(name = "Days Since Start of Tags", breaks = seq(0,max(percent_tags$days_on)+10, by=20)) +
+  scale_y_continuous(name = "Percent Tags Remaining", breaks = seq(0,100, by=5)) +
+  theme_bw() + theme(panel.grid.major=element_blank(), panel.grid.minor=element_blank())
+
+#print plot
+SSTLplot
+```
+
+#### San Joaquin Steelhead Tag Life Study
+
+To monitor the battery life of tags implanted in San Joaquin Steelhead, a 5% random sample was taken from the total number of tags used for the first six release groups, tagged on study week one, during this report period. 18 SS300 tags were started on 3/18/2024 and placed in the tag life tank located at the NMFS-SWFSC lab to monitor the range of battery life for these particular tags, and to correct any discrepancies in survival estimates as a result of tags shutting off prematurely.
+
+## Deliverables
+
+1.  Final Pre-season tagging plan available via the website
+2.  Web-accessible Telemetry Study Summary no more than 96 hours after the release of fish
+3.  Final memo/report on tag life results at end of year available via website
+4.  Final memo/report on tag effects results at end of year available via website
+5.  Annual technical report summarizing results from the previous study year
+6.  Final report summarizing the results of the three study years
+7.  Two peer reviewed publications
+
+# Task 5. Produce and deliver real-time metrics
+
+The project website was updated with new web pages describing unique tagging studies, including release metadata, travel time, number of fish detected at each real-time receiver, and detection efficiency for dual-line receiver locations (Sacramento, Benicia). <https://oceanview.pfeg.noaa.gov/CalFishTrack/>. Tagging data were updated two days after fish were tagged. Data from real-time receivers was automatically updated every hour.
+
+## Deliverables
+
+1.  Website and email daily updates of arrival times, movement rates, and percent detected for each release group beginning immediately after the release of the first group.
+2.  Website updated weekly with real-time data, summary statistics of real-time survival and routing, and predictions based on models fitted to historical late-fall Chinook data.
+
+# Task 6. Project Management
+
+Bi-weekly CVEAT conference calls and monthly ITAG virtual meetings were scheduled and moderated by ITAG facilitator Flora Cordoleani of UC Santa Cruz during the reporting period. These CVEAT calls facilitate close coordination on tagging events and receiver deployments between the many field operation leaders for the many different telemetry projects. Monthly ITAG meetings are for higher-level coordination and long-term planning for the Central Valley telemetry programs, and is attended by both field operation leaders as well as higher level agency representatives.
+
+## Deliverables
+
+1.  Semi-annual progress reports
+2.  The database coordinator will lead a data management workshop
+3.  The database coordinator will participate in the ITAG meetings and appropriate subgroup meetings
+4.  The database coordinator will work with agencies and stakeholders to address key data management questions
+5.  The ITAG facilitator will schedule meetings and take meeting notes, and make meeting notes accessible to public via an online platform
+6.  The ITAG facilitator will collect pre- and post-study summary forms from researchers and host them on the CalFishTrack website
+7.  The ITAG facilitator will provide a summary report of ITAG activities within 6 months of the completion of the last ITAG tagging effort for the water year
